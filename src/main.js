@@ -1,6 +1,7 @@
 import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
 import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav } from './store.js';
+import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -443,6 +444,83 @@ const panels = {
           <a class="btn sm" href="${url}" download="voiceover-${Date.now()}.wav">Download WAV</a>
           <button class="btn sm" id="useV">Use in a video</button></div></div></div></div>`;
         $('#useV').onclick = () => { setMode('video'); $('#vsel').value = 'current'; };
+      });
+    };
+  },
+
+  presenter() {
+    $('#panel').innerHTML = `
+      <h1>Presenter</h1>
+      <p class="lede">A photo of a face reads your script. It runs on the processor, with no graphics chip needed.</p>
+      <label class="f">Presenter photo</label>
+      <div class="drop" id="faceDrop"></div>
+      <p class="note">Use a clear, front-facing head-and-shoulders photo with the mouth closed. Only use someone who has agreed to be your presenter.</p>
+      <label class="f" for="script">Script</label>
+      <textarea id="script" placeholder="Hi, I'm here to show you this week's best finds.">${S.product ? esc(productScript(S.product.card)) : ''}</textarea>
+      <div class="row">
+        <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
+        <div><label class="f" for="speed">Speed</label><select id="speed"><option value="0.9">Slow</option><option value="1" selected>Normal</option><option value="1.1">Fast</option></select></div>
+      </div>
+      <label class="f" for="format">Format</label>
+      <select id="format">${formatOptions('vertical')}</select>
+      ${S.product ? `<label class="check"><input type="checkbox" id="withProduct" checked> Show the product photos, presenter in a corner</label>
+      <label class="check"><input type="checkbox" id="useProduct" checked> Caption: ${esc(S.product.card.title.slice(0, 40))}</label>` : '<p class="note">Load a product link in Presets to make a product presenter video.</p>'}
+      <label class="check"><input type="checkbox" id="aiTag" checked> Show an "AI presenter" label</label>
+      <div class="row" style="margin-top:18px"><button class="btn" id="prev">Preview face</button></div>
+      <button class="btn primary" id="go">Create presenter video</button>`;
+    const faceDrop = $('#faceDrop');
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
+    faceDrop.after(input);
+    const paint = () => (faceDrop.innerHTML = S.face ? `<img src="${S.face.url}" alt=""><span>Click to change</span>` : 'Drop a portrait here or click to upload');
+    const setFace = file => { S.face = { blob: file, url: URL.createObjectURL(file), points: null }; paint(); };
+    faceDrop.onclick = () => input.click();
+    input.onchange = () => input.files[0] && setFace(input.files[0]);
+    faceDrop.ondragover = e => { e.preventDefault(); faceDrop.classList.add('over'); };
+    faceDrop.ondragleave = () => faceDrop.classList.remove('over');
+    faceDrop.ondrop = e => { e.preventDefault(); faceDrop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) setFace(f); };
+    paint();
+
+    const prepare = async () => {
+      const bmp = await createImageBitmap(S.face.blob);
+      if (!S.face.points) { job.text('Finding the face…'); S.face.points = await detectFace(bmp); }
+      const pres = new Presenter();
+      pres.load(bmp, S.face.points);
+      return pres;
+    };
+    const sizeOf = () => FORMATS[$('#format').value]?.size || null;
+    let stopPreview = null;
+    $('#prev').onclick = () => {
+      if (!S.face) return faceDrop.click();
+      run('Preparing preview…', async () => {
+        const pres = await prepare();
+        $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas><div class="acts"><span class="note">Preview with a practice mouth movement. Create the video to hear it speak.</span></div></div>`;
+        stopPreview?.();
+        stopPreview = previewPresenter(pres, $('#pc'), sizeOf());
+      });
+    };
+    $('#go').onclick = () => {
+      if (!S.face) return faceDrop.click();
+      const script = $('#script').value.trim();
+      if (!script) return $('#script').focus();
+      const voiceId = $('#voice').value, speed = +$('#speed').value, size = sizeOf();
+      const c = $('#useProduct')?.checked ? S.product.card : null;
+      const caption = c ? { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') } : null;
+      const aiTag = $('#aiTag').checked;
+      const productPhotos = $('#withProduct')?.checked ? S.product.photos.filter((_, i) => S.product.use[i]) : null;
+      run('Starting…', async () => {
+        const backdrop = productPhotos ? await Promise.all(productPhotos.map(b => createImageBitmap(b))) : null;
+        stopPreview?.(); stopPreview = null;
+        const pres = await prepare();
+        const voice = await speak(script, voiceId, speed);
+        $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas></div>`;
+        job.text('Recording presenter…');
+        const video = await recordPresenter(pres, $('#pc'), size, voice, {
+          caption, aiTag, backdrop,
+          onTick: t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`),
+        });
+        const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
+        await saveItem({ kind: 'video', blob: video, prompt: 'Presenter: ' + script, ext });
+        showVideo(video, ext);
       });
     };
   },

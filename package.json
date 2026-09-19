@@ -13,6 +13,7 @@
   "type": "module",
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",
+    "@mediapipe/tasks-vision": "^1.0.1",
     "kokoro-js": "^1.2.1"
   },
   "devDependencies": {
