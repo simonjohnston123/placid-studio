@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Placid Studio</title>
+  <meta name="description" content="Make AI images, videos and voiceovers in your browser. No uploads, no servers, no credits." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2314b8a6'/><path d='M11 9h7a5 5 0 010 10h-4v5h-3z' fill='white'/></svg>" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">P</span> Placid <b>Studio</b></div>
+    <div class="device" id="device">Checking device…</div>
+  </header>
+
+  <div class="shell">
+    <nav class="rail" id="rail">
+      <button data-mode="presets" class="on"><i>✦</i><span>Presets</span></button>
+      <button data-mode="image"><i>▣</i><span>Image</span></button>
+      <button data-mode="video"><i>▶</i><span>Video</span></button>
+      <button data-mode="voice"><i>♪</i><span>Voice</span></button>
+      <button data-mode="library"><i>☰</i><span>Library</span></button>
+    </nav>
+
+    <main class="work">
+      <section class="panel" id="panel"></section>
+      <section class="stage" id="stage">
+        <div class="empty" id="empty">
+          <h2>Everything runs on this device</h2>
+          <p>The AI models download to your browser once (about 1–2 GB, then cached). No sign-up, no credits and no uploads: your prompts and pictures never leave this computer.</p>
+        </div>
+        <div class="job" id="job" hidden>
+          <div class="job-text" id="jobText"></div>
+          <div class="bar"><div id="jobBar"></div></div>
+          <div class="job-sub" id="jobSub"></div>
+        </div>
+        <div class="out" id="out"></div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
