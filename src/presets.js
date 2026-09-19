@@ -40,9 +40,14 @@ export const MOTIONS = {
 
 function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
+// Kokoro ships no Australian or New Zealand voice (55 voices: US, UK and other
+// languages). UK reads closest to Australian ears, so those are listed first and
+// marked. A real AU/NZ voice needs either your own recording ("Use my own voice")
+// or a voice trained on Australian speech.
 export const VOICES = [
+  ['bf_emma', 'Emma (UK — closest to AU)'], ['bm_george', 'George (UK — closest to AU)'],
+  ['bf_isabella', 'Isabella (UK, female)'], ['bm_lewis', 'Lewis (UK, male)'],
+  ['bf_alice', 'Alice (UK, female)'], ['bm_daniel', 'Daniel (UK, male)'],
   ['af_heart', 'Heart (US, female)'], ['af_bella', 'Bella (US, female)'], ['af_nicole', 'Nicole (US, female)'],
   ['am_michael', 'Michael (US, male)'], ['am_adam', 'Adam (US, male)'],
-  ['bf_emma', 'Emma (UK, female)'], ['bf_isabella', 'Isabella (UK, female)'],
-  ['bm_george', 'George (UK, male)'], ['bm_lewis', 'Lewis (UK, male)'],
 ];

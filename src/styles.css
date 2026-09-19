@@ -102,3 +102,5 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .pthumbs input:not(:checked) + img { opacity: .35; }
 .hero canvas { max-height: 72vh; width: auto; max-width: 100%; margin: 0 auto; }
 .hero video { max-height: 72vh; }
+.filein { width: 100%; font-size: 13px; color: var(--muted); }
+.filein::file-selector-button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-right: 10px; cursor: pointer; }

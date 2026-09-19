@@ -238,6 +238,20 @@ function productScript(c) {
   return parts.join(' ');
 }
 
+// "Use my own voice": an uploaded recording replaces the generated voiceover
+// everywhere, including the presenter's lip-sync.
+const recordingField = (id, label = 'Or use your own recording') =>
+  `<label class="f" for="${id}">${label}</label><input type="file" id="${id}" accept="audio/*" class="filein">`;
+
+async function pickedRecording(id) {
+  const file = $(`#${id}`)?.files?.[0];
+  if (!file) return null;
+  job.text('Reading your recording…');
+  const voice = { ...(await audioFromBlob(file)), text: file.name };
+  await saveItem({ kind: 'audio', blob: file, prompt: `Your recording: ${file.name}` });
+  return voice;
+}
+
 function dropZone(el, onFile) {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
   el.after(input);
@@ -284,6 +298,7 @@ const panels = {
         <label class="f" for="script">Voiceover script</label>
         <textarea id="script" placeholder="Where the storm meets the sea, one light keeps watch."></textarea>
         <label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select>
+        ${recordingField('voFile')}
       </div>
       <button class="btn primary" id="go">Create video</button>
       <p class="note">A loaded product is used first, then an uploaded image; otherwise a new image is generated from your description in the chosen style.</p>`;
@@ -320,8 +335,8 @@ const panels = {
       const seconds = +$('#len').value, motion = $('#motion').value, format = $('#format').value;
       const preset = S.preset, script = $('#script').value.trim(), voiceId = $('#voice').value;
       run('Starting…', async () => {
-        let voice = null;
-        if (wantVoice) {
+        let voice = await pickedRecording('voFile');
+        if (!voice && wantVoice) {
           voice = await speak(script, voiceId, 1);
           await saveItem({ kind: 'audio', blob: toWav(voice.samples, voice.rate), prompt: script });
         }
@@ -428,7 +443,17 @@ const panels = {
         <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
         <div><label class="f" for="speed">Speed</label><select id="speed"><option value="0.85">Slow</option><option value="1" selected>Normal</option><option value="1.15">Fast</option></select></div>
       </div>
+      ${recordingField('voFile', 'Or upload your own recording (kept in the Library)')}
       <button class="btn primary" id="go">Generate voiceover</button>`;
+    $('#voFile').onchange = () => {
+      if (!$('#voFile').files[0]) return;
+      run('Saving your recording…', async () => {
+        const v = await pickedRecording('voFile');
+        S.voice = v;
+        $('#out').innerHTML = `<div class="hero"><div class="card"><audio src="${URL.createObjectURL($('#voFile').files[0])}" controls></audio>
+          <div class="meta"><p>${esc(v.text)}</p><div class="acts"><button class="btn sm" data-go="presenter">Use with a presenter</button></div></div></div></div>`;
+      });
+    };
     $('#go').onclick = () => {
       const text = $('#script').value.trim();
       if (!text) return $('#script').focus();
@@ -461,6 +486,7 @@ const panels = {
         <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
         <div><label class="f" for="speed">Speed</label><select id="speed"><option value="0.9">Slow</option><option value="1" selected>Normal</option><option value="1.1">Fast</option></select></div>
       </div>
+      ${recordingField('voFile', 'Or use your own recording instead of the script')}
       <label class="f" for="format">Format</label>
       <select id="format">${formatOptions('vertical')}</select>
       ${S.product ? `<label class="check"><input type="checkbox" id="withProduct" checked> Show the product photos, presenter in a corner</label>
@@ -501,7 +527,7 @@ const panels = {
     $('#go').onclick = () => {
       if (!S.face) return faceDrop.click();
       const script = $('#script').value.trim();
-      if (!script) return $('#script').focus();
+      if (!script && !$('#voFile').files[0]) return $('#script').focus();
       const voiceId = $('#voice').value, speed = +$('#speed').value, size = sizeOf();
       const c = $('#useProduct')?.checked ? S.product.card : null;
       const caption = c ? { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') } : null;
@@ -511,7 +537,7 @@ const panels = {
         const backdrop = productPhotos ? await Promise.all(productPhotos.map(b => createImageBitmap(b))) : null;
         stopPreview?.(); stopPreview = null;
         const pres = await prepare();
-        const voice = await speak(script, voiceId, speed);
+        const voice = (await pickedRecording('voFile')) || await speak(script, voiceId, speed);
         $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas></div>`;
         job.text('Recording presenter…');
         const video = await recordPresenter(pres, $('#pc'), size, voice, {
