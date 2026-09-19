@@ -1,5 +1,5 @@
 import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
-import { MotionRenderer } from './motion.js';
+import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav } from './store.js';
 
 const $ = sel => document.querySelector(sel);
@@ -37,6 +37,7 @@ const S = {
   preset: STYLE_PRESETS[0],
   motion: STYLE_PRESETS[0].motion,
   source: null,   // { blob, url, prompt }
+  product: null,  // { card, photos: Blob[], use: boolean[] } from a product link
   voice: null,    // { samples, rate, text }
   busy: false,
   gpu: { ok: false, f16: false },
@@ -141,13 +142,19 @@ function heroCanvas() {
   return renderer;
 }
 
-async function renderVideo({ blob, motion, seconds, intensity = 1, grain = 0.03, voice, prompt }) {
-  const depth = await depthFor(blob);
-  const bmp = await createImageBitmap(blob);
+// One or more photos, each with its own camera move, cut together into one video.
+const SHOT_MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
+async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null }) {
+  const list = blobs?.length ? blobs : [blob];
+  const shots = [];
+  for (const [i, b] of list.entries()) {
+    job.text(list.length > 1 ? `Reading depth of photo ${i + 1} of ${list.length}…` : 'Reading scene depth…');
+    shots.push({ image: await createImageBitmap(b), depth: await depthFor(b), motion: i === 0 ? motion : SHOT_MOVES[i % SHOT_MOVES.length] });
+  }
   const r = heroCanvas();
-  r.load(bmp, depth);
+  r.setFrame(format, caption);
   job.text('Recording video…');
-  const video = await r.record(motion, { intensity, grain }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
+  const video = await r.record(shots, { intensity, grain }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
   const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
   await saveItem({ kind: 'video', blob: video, prompt, motion, ext });
   showVideo(video, ext);
@@ -170,6 +177,60 @@ function download(blob, name) {
 const motionOptions = sel => Object.entries(MOTIONS).map(([k, m]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${m.label}</option>`).join('');
 const voiceOptions = () => VOICES.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('');
 const lengthOptions = sel => [3, 5, 8, 10, 15].map(s => `<option value="${s}" ${s === sel ? 'selected' : ''}>${s} seconds</option>`).join('');
+const formatOptions = sel => Object.entries(FORMATS).map(([k, f]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(f.label)}</option>`).join('');
+
+// ---------- product links ----------
+// The shop publishes a product card (name, copy, price, photos) that only this
+// studio's address may read. Up to 5 photos become the video's shots.
+async function fetchProduct(link) {
+  let u;
+  try { u = new URL(link); } catch { throw new Error('That is not a web address. Paste the whole product link, starting with https://'); }
+  let res;
+  try { res = await fetch(`${u.origin}/api/public/product-card?url=${encodeURIComponent(u.href)}`); }
+  catch { throw new Error(`${u.host} does not let Placid Studio read its products yet.`); }
+  const card = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(card.error || `${u.host} answered ${res.status}.`);
+  if (!card.images?.length) throw new Error('That product has no photos to animate.');
+  job.text('Downloading product photos…');
+  const photos = [];
+  for (const src of card.images.slice(0, 5)) {
+    const r = await fetch(src).catch(() => null);
+    if (r?.ok) photos.push(await r.blob());
+  }
+  if (!photos.length) throw new Error('The product photos could not be downloaded. Try again in a minute.');
+  return { card, photos, use: photos.map((_, i) => i < 4) };
+}
+
+function paintProduct() {
+  const box = $('#productBox');
+  if (!box) return;
+  const p = S.product;
+  if (!p) { box.innerHTML = ''; return; }
+  const c = p.card;
+  const stock = { in_stock: '', out_of_stock: ' · out of stock, so no price is shown', discontinued: ' · no longer sold, so no price is shown' }[c.availability] ?? '';
+  box.innerHTML = `<div class="card" style="margin-top:10px"><div class="meta">
+    <p><b>${esc(c.title)}</b></p>
+    <div>${esc(c.priceLabel || 'No price shown')}${esc(stock)}</div>
+    <div class="pthumbs">${p.photos.map((b, i) => `<label><input type="checkbox" data-ph="${i}" ${p.use[i] ? 'checked' : ''}><img src="${URL.createObjectURL(b)}" alt=""></label>`).join('')}</div>
+    <div class="acts"><button class="btn sm" id="clearProduct">Remove product</button></div></div></div>`;
+  box.querySelectorAll('[data-ph]').forEach(cb => cb.onchange = () => (p.use[+cb.dataset.ph] = cb.checked));
+  $('#clearProduct').onclick = () => { S.product = null; paintProduct(); };
+}
+
+// Built only from the page's own facts: no invented claims, urgency or discounts.
+function productScript(c) {
+  const title = c.title.replace(/\s*[|–—]\s*/g, ', ');
+  const firstSentence = s => (String(s || '').match(/^[^.!?\n]{12,160}[.!?]?/) || [''])[0].trim();
+  const benefit = firstSentence(c.features?.[0]) || firstSentence(c.description);
+  const parts = [`${title}.`];
+  if (benefit) parts.push(benefit.replace(/[.!?]*$/, '.'));
+  if (c.priceCents) {
+    const dollars = c.priceCents % 100 ? (c.priceCents / 100).toFixed(2) : String(c.priceCents / 100);
+    parts.push(`$${dollars}, with delivery worked out for your postcode.`);
+  }
+  parts.push('Find it at Placid Deals dot com.');
+  return parts.join(' ');
+}
 
 function dropZone(el, onFile) {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
@@ -194,7 +255,11 @@ const panels = {
   presets() {
     $('#panel').innerHTML = `
       <h1>Presets</h1>
-      <p class="lede">Pick a look, describe the shot and get a finished video with camera movement and an optional voiceover.</p>
+      <p class="lede">Paste a product link, or pick a look and describe the shot. You get a finished video with camera movement and an optional voiceover.</p>
+      <label class="f" for="link">From a product link</label>
+      <div class="row"><input type="text" id="link" placeholder="https://placiddeals.com/p/…" inputmode="url"><button class="btn" id="fetch" style="flex:0 0 auto">Load</button></div>
+      <div id="productBox"></div>
+      <label class="f">Or pick a look</label>
       <div class="presets">${STYLE_PRESETS.map(p => `
         <button class="preset ${p.id === S.preset.id ? 'on' : ''}" data-preset="${p.id}" style="background:linear-gradient(135deg,${p.colors[0]},${p.colors[1]})"><span>${esc(p.name)}</span></button>`).join('')}
       </div>
@@ -202,9 +267,11 @@ const panels = {
       <textarea id="prompt" placeholder="A lighthouse on a cliff during a storm"></textarea>
       <label class="f">Or start from your own image</label>
       <div class="drop" id="drop"></div>
+      <label class="f" for="format">Format</label>
+      <select id="format">${formatOptions(S.product ? 'vertical' : 'source')}</select>
       <div class="row">
         <div><label class="f" for="motion">Camera</label><select id="motion">${motionOptions(S.motion)}</select></div>
-        <div><label class="f" for="len">Length</label><select id="len">${lengthOptions(5)}</select></div>
+        <div><label class="f" for="len">Length</label><select id="len">${lengthOptions(S.product ? 10 : 5)}</select></div>
       </div>
       <label class="check"><input type="checkbox" id="vo"> Add a voiceover</label>
       <div id="voBox" hidden>
@@ -213,8 +280,9 @@ const panels = {
         <label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select>
       </div>
       <button class="btn primary" id="go">Create video</button>
-      <p class="note">An uploaded image is used as-is; otherwise a new image is generated from your description in the chosen style.</p>`;
+      <p class="note">A loaded product is used first, then an uploaded image; otherwise a new image is generated from your description in the chosen style.</p>`;
     dropZone($('#drop'));
+    paintProduct();
     $('#panel').querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
       S.preset = STYLE_PRESETS.find(p => p.id === b.dataset.preset);
       S.motion = S.preset.motion;
@@ -223,13 +291,41 @@ const panels = {
     });
     $('#motion').onchange = e => (S.motion = e.target.value);
     $('#vo').onchange = e => ($('#voBox').hidden = !e.target.checked);
+    const load = () => {
+      const link = $('#link').value.trim();
+      if (!link) return $('#link').focus();
+      run('Loading product…', async () => {
+        S.product = await fetchProduct(link);
+        paintProduct();
+        $('#format').value = 'vertical';
+        $('#len').value = '10';
+        $('#motion').value = S.motion = 'push';
+        $('#vo').checked = true; $('#voBox').hidden = false;
+        $('#script').value = productScript(S.product.card);
+      });
+    };
+    $('#fetch').onclick = load;
+    $('#link').onkeydown = e => e.key === 'Enter' && load();
     $('#go').onclick = () => {
       const text = $('#prompt').value.trim();
-      if (!S.source && !text) return $('#prompt').focus();
+      const product = S.product;
+      if (!product && !S.source && !text) return $('#link').focus();
       const wantVoice = $('#vo').checked && $('#script').value.trim();
-      const seconds = +$('#len').value, motion = $('#motion').value;
+      const seconds = +$('#len').value, motion = $('#motion').value, format = $('#format').value;
       const preset = S.preset, script = $('#script').value.trim(), voiceId = $('#voice').value;
       run('Starting…', async () => {
+        let voice = null;
+        if (wantVoice) {
+          voice = await speak(script, voiceId, 1);
+          await saveItem({ kind: 'audio', blob: toWav(voice.samples, voice.rate), prompt: script });
+        }
+        if (product) {
+          const blobs = product.photos.filter((_, i) => product.use[i]);
+          if (!blobs.length) throw new Error('Tick at least one product photo.');
+          const c = product.card;
+          const caption = { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') };
+          return renderVideo({ blobs, motion, seconds, voice, prompt: c.title, format, caption });
+        }
         let blob = S.source?.blob, prompt = text || S.source?.prompt;
         if (!blob) {
           const full = `${text}, ${preset.prompt}`;
@@ -237,12 +333,7 @@ const panels = {
           await saveItem({ kind: 'image', blob, prompt: full });
           prompt = full;
         }
-        let voice = null;
-        if (wantVoice) {
-          voice = await speak(script, voiceId, 1);
-          await saveItem({ kind: 'audio', blob: toWav(voice.samples, voice.rate), prompt: script });
-        }
-        await renderVideo({ blob, motion, seconds, voice, prompt });
+        await renderVideo({ blob, motion, seconds, voice, prompt, format });
       });
     };
   },
@@ -280,6 +371,8 @@ const panels = {
       <p class="lede">Image to video. The scene's depth is read, then a real camera move is rendered through it.</p>
       <label class="f">Source image</label>
       <div class="drop" id="drop"></div>
+      <label class="f" for="format">Format</label>
+      <select id="format">${formatOptions('source')}</select>
       <div class="row">
         <div><label class="f" for="motion">Camera</label><select id="motion">${motionOptions(S.motion)}</select></div>
         <div><label class="f" for="len">Length</label><select id="len">${lengthOptions(5)}</select></div>
@@ -299,21 +392,22 @@ const panels = {
       if (!S.source) return $('#drop').click();
       run('Preparing preview…', async () => {
         const depth = await depthFor(S.source.blob);
+        const bmp = await createImageBitmap(S.source.blob);
         const r = heroCanvas();
-        r.load(await createImageBitmap(S.source.blob), depth);
-        r.preview($('#motion').value, opts(), +$('#len').value);
+        const apply = () => { r.setFrame($('#format').value); r.load(bmp, depth); r.preview($('#motion').value, opts(), +$('#len').value); };
+        apply();
         $('#heroActs').innerHTML = '<span class="note">Live preview. Adjust the controls, then Render video.</span>';
-        for (const id of ['#motion', '#int', '#grain', '#len']) $(id).oninput = () => r.preview($('#motion').value, opts(), +$('#len').value);
+        for (const id of ['#motion', '#int', '#grain', '#len', '#format']) $(id).oninput = apply;
       });
     };
     $('#go').onclick = () => {
       if (!S.source) return $('#drop').click();
-      const motion = $('#motion').value, seconds = +$('#len').value, o = opts(), vid = $('#vsel').value;
+      const motion = $('#motion').value, seconds = +$('#len').value, o = opts(), vid = $('#vsel').value, format = $('#format').value;
       run('Starting…', async () => {
         let voice = null;
         if (vid === 'current') voice = S.voice;
         else if (vid) { const it = (await listItems()).find(i => i.id === vid); voice = it && await audioFromBlob(it.blob); }
-        await renderVideo({ blob: S.source.blob, motion, seconds, ...o, voice, prompt: S.source.prompt });
+        await renderVideo({ blob: S.source.blob, motion, seconds, ...o, voice, prompt: S.source.prompt, format });
       });
     };
   },

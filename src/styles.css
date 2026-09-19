@@ -94,3 +94,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   .stage { padding: 16px; }
   .empty { margin-top: 24px; }
 }
+
+.pthumbs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.pthumbs label { position: relative; cursor: pointer; }
+.pthumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.pthumbs input { position: absolute; top: 3px; left: 3px; accent-color: var(--accent); }
+.pthumbs input:not(:checked) + img { opacity: .35; }
+.hero canvas { max-height: 72vh; width: auto; max-width: 100%; margin: 0 auto; }
+.hero video { max-height: 72vh; }

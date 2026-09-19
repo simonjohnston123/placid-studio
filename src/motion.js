@@ -1,5 +1,6 @@
 // 2.5D camera moves: the image is displaced by its own depth map in a WebGL shader,
-// so near things move more than far things. Recorded straight off the canvas.
+// so near things move more than far things. A 2D canvas composites the result into
+// the chosen frame (source shape, 9:16, 1:1, 16:9) with captions, and is recorded.
 import { MOTIONS } from './presets.js';
 
 const VS = `attribute vec2 p; varying vec2 v; void main(){ v = p * 0.5 + 0.5; v.y = 1.0 - v.y; gl_Position = vec4(p, 0.0, 1.0); }`;
@@ -22,10 +23,19 @@ void main(){
   gl_FragColor = vec4(c * mix(0.82, 1.0, vig), 1.0);
 }`;
 
+export const FORMATS = {
+  source: { label: 'Same as image', size: null },
+  vertical: { label: '9:16 · TikTok, Reels, Shorts', size: [720, 1280] },
+  square: { label: '1:1 · Instagram, Facebook feed', size: [1080, 1080] },
+  wide: { label: '16:9 · YouTube', size: [1280, 720] },
+};
+
 export class MotionRenderer {
   constructor(canvas) {
-    this.canvas = canvas;
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, premultipliedAlpha: false });
+    this.out = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.gc = document.createElement('canvas');
+    const gl = this.gc.getContext('webgl', { preserveDrawingBuffer: true, premultipliedAlpha: false });
     if (!gl) throw new Error('WebGL is not available in this browser.');
     this.gl = gl;
     const prog = gl.createProgram();
@@ -44,6 +54,8 @@ export class MotionRenderer {
     this.u = Object.fromEntries(['img', 'dep', 'zoom', 's', 'off', 'grain', 'time'].map(n => [n, gl.getUniformLocation(prog, n)]));
     gl.uniform1i(this.u.img, 0); gl.uniform1i(this.u.dep, 1);
     this.texImg = this.#tex(); this.texDep = this.#tex();
+    this.format = 'source';
+    this.caption = null;
   }
 
   #tex() {
@@ -54,23 +66,39 @@ export class MotionRenderer {
     return t;
   }
 
+  /** Output frame. format: key of FORMATS. caption: { title, line } or null. */
+  setFrame(format, caption = null) { this.format = format; this.caption = caption; }
+
   // image: ImageBitmap; depth: { data: Uint8Array (1 channel), width, height }
   load(image, depth, maxW = 1280) {
     const gl = this.gl;
     const scale = Math.min(1, maxW / image.width);
     let w = Math.round(image.width * scale), h = Math.round(image.height * scale);
     if (w < 720) { h = Math.round(h * 720 / w); w = 720; } // small generations get a 720p canvas
-    this.canvas.width = w - (w % 2); this.canvas.height = h - (h % 2);
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.gc.width = w - (w % 2); this.gc.height = h - (h % 2);
+    gl.viewport(0, 0, this.gc.width, this.gc.height);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texImg);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
     const rgba = new Uint8Array(depth.width * depth.height * 4);
     for (let i = 0; i < depth.data.length; i++) { const d = depth.data[i]; rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = d; rgba[i * 4 + 3] = 255; }
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texDep);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, depth.width, depth.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+
+    const size = FORMATS[this.format]?.size || [this.gc.width, this.gc.height];
+    if (this.out.width !== size[0] || this.out.height !== size[1]) { this.out.width = size[0]; this.out.height = size[1]; }
+    // Blurred fill behind a photo that does not match the frame shape (product shots in 9:16).
+    this.bg = null;
+    if (FORMATS[this.format]?.size) {
+      const bg = document.createElement('canvas'); bg.width = size[0]; bg.height = size[1];
+      const b = bg.getContext('2d');
+      const k = Math.max(size[0] / image.width, size[1] / image.height) * 1.15;
+      b.filter = 'blur(28px) brightness(0.7)';
+      b.drawImage(image, (size[0] - image.width * k) / 2, (size[1] - image.height * k) / 2, image.width * k, image.height * k);
+      this.bg = bg;
+    }
   }
 
-  draw(motion, t, { intensity = 1, grain = 0 } = {}) {
+  draw(motion, t, { intensity = 1, grain = 0, alpha = 1 } = {}) {
     const gl = this.gl, m = (MOTIONS[motion] || MOTIONS.push).f(t);
     const k = intensity;
     gl.uniform1f(this.u.zoom, 1 + (m.zoom - 1) * Math.max(k, 0.3));
@@ -79,6 +107,42 @@ export class MotionRenderer {
     gl.uniform1f(this.u.grain, grain);
     gl.uniform1f(this.u.time, t * 97.0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    const c = this.ctx, W = this.out.width, H = this.out.height;
+    c.globalAlpha = 1;
+    c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+    c.globalAlpha = alpha;
+    if (this.bg) {
+      c.drawImage(this.bg, 0, 0);
+      const cap = this.caption ? 0.2 : 0;
+      const k2 = Math.min(W / this.gc.width, (H * (1 - cap)) / this.gc.height);
+      const w = this.gc.width * k2, h = this.gc.height * k2;
+      c.drawImage(this.gc, (W - w) / 2, (H * (1 - cap) - h) / 2, w, h);
+    } else {
+      c.drawImage(this.gc, 0, 0, W, H);
+    }
+    c.globalAlpha = 1;
+    if (this.caption) this.#caption();
+  }
+
+  #caption() {
+    const c = this.ctx, W = this.out.width, H = this.out.height, { title, line } = this.caption;
+    const pad = Math.round(W * 0.06), fs = Math.round(Math.min(W, H) * 0.052);
+    c.font = `700 ${fs}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    const lines = wrap(c, title, W - pad * 2).slice(0, 2);
+    const small = Math.round(fs * 0.72);
+    const boxH = lines.length * fs * 1.2 + (line ? small * 1.6 : 0) + pad;
+    const g = c.createLinearGradient(0, H - boxH - pad * 1.5, 0, H);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.35, 'rgba(0,0,0,.72)'); g.addColorStop(1, 'rgba(0,0,0,.85)');
+    c.fillStyle = g; c.fillRect(0, H - boxH - pad * 1.5, W, boxH + pad * 1.5);
+    c.fillStyle = '#fff'; c.textBaseline = 'top';
+    let y = H - boxH;
+    for (const l of lines) { c.fillText(l, pad, y); y += fs * 1.2; }
+    if (line) {
+      c.font = `600 ${small}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      c.fillStyle = '#5eead4';
+      c.fillText(line, pad, y + small * 0.3);
+    }
   }
 
   preview(motion, opts, seconds = 5) {
@@ -94,10 +158,14 @@ export class MotionRenderer {
 
   stop() { cancelAnimationFrame(this.raf); clearTimeout(this.timer); this.raf = this.timer = 0; }
 
-  // Records the move in real time. audio: optional { samples: Float32Array, rate }.
-  async record(motion, opts, seconds, audio, onTick) {
+  /**
+   * Records one or more shots back to back.
+   * shots: [{ image: ImageBitmap, depth, motion }]; seconds: total length.
+   * audio: optional { samples: Float32Array, rate } — the video stretches to fit it.
+   */
+  async record(shots, opts, seconds, audio, onTick) {
     this.stop();
-    const stream = this.canvas.captureStream(30);
+    const stream = this.out.captureStream(30);
     let ctx = null, src = null;
     if (audio) {
       ctx = new AudioContext();
@@ -107,7 +175,7 @@ export class MotionRenderer {
       const dest = ctx.createMediaStreamDestination();
       src.connect(dest);
       dest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
-      seconds = Math.max(seconds, buf.duration + 0.4);
+      seconds = Math.max(seconds, buf.duration + 0.6);
     }
     const mime = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm']
       .find(m => MediaRecorder.isTypeSupported(m));
@@ -115,15 +183,24 @@ export class MotionRenderer {
     const chunks = [];
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     const finished = new Promise(r => (rec.onstop = r));
-    this.draw(motion, 0, opts);
+    const per = seconds / shots.length;
+    let current = -1;
+    const show = i => { if (i !== current) { current = i; this.load(shots[i].image, shots[i].depth); } };
+    show(0);
+    this.draw(shots[0].motion, 0, opts);
     rec.start(250);
     src?.start();
     const start = performance.now();
     // Timer, not requestAnimationFrame: rAF stops completely in a hidden tab and the render would hang.
     await new Promise(resolve => {
       const loop = () => {
-        const t = Math.min(1, (performance.now() - start) / 1000 / seconds);
-        this.draw(motion, t, opts);
+        const elapsed = (performance.now() - start) / 1000;
+        const t = Math.min(1, elapsed / seconds);
+        const i = Math.min(shots.length - 1, Math.floor(elapsed / per));
+        show(i);
+        const local = Math.min(1, (elapsed - i * per) / per);
+        const fade = shots.length > 1 ? Math.min(1, (elapsed - i * per) / 0.3) : 1;
+        this.draw(shots[i].motion, local, { ...opts, alpha: fade });
         onTick?.(t);
         if (t < 1) this.timer = setTimeout(loop, 1000 / 30); else resolve();
       };
@@ -134,4 +211,16 @@ export class MotionRenderer {
     ctx?.close();
     return new Blob(chunks, { type: mime.split(';')[0] });
   }
+}
+
+function wrap(c, text, max) {
+  const words = String(text).split(/\s+/), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const next = cur ? cur + ' ' + w : w;
+    if (c.measureText(next).width > max && cur) { lines.push(cur); cur = w; } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > 2) lines[1] = lines[1].replace(/\s*\S*$/, '') + '…';
+  return lines;
 }
