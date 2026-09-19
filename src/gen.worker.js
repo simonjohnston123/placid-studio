@@ -30,9 +30,10 @@ async function loadJanus(id) {
   if (!g.ok) throw new Error('Image generation needs WebGPU (Chrome or Edge on a computer with a graphics chip). Upload your own image instead.');
   const processor = await AutoProcessor.from_pretrained(JANUS, { progress_callback: progress(id, 'Image model') });
   const model = await MultiModalityCausalLM.from_pretrained(JANUS, {
+    // ~1.5 GB total. lm_head is only used for text replies, never for images, so it takes the smallest file.
     dtype: g.f16
-      ? { prepare_inputs_embeds: 'q4', language_model: 'q4f16', lm_head: 'fp16', gen_head: 'fp16', gen_img_embeds: 'fp16', image_decode: 'fp32' }
-      : { prepare_inputs_embeds: 'fp32', language_model: 'q4', lm_head: 'fp32', gen_head: 'fp32', gen_img_embeds: 'fp32', image_decode: 'fp32' },
+      ? { prepare_inputs_embeds: 'quantized', language_model: 'q4f16', lm_head: 'q4f16', gen_head: 'fp16', gen_img_embeds: 'fp16', image_decode: 'fp32' }
+      : { prepare_inputs_embeds: 'quantized', language_model: 'q4', lm_head: 'q4', gen_head: 'fp32', gen_img_embeds: 'fp32', image_decode: 'fp32' },
     device: { prepare_inputs_embeds: 'wasm', language_model: 'webgpu', lm_head: 'webgpu', gen_head: 'webgpu', gen_img_embeds: 'webgpu', image_decode: 'webgpu' },
     progress_callback: progress(id, 'Image model'),
   });

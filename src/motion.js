@@ -92,7 +92,7 @@ export class MotionRenderer {
     this.raf = requestAnimationFrame(loop);
   }
 
-  stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
+  stop() { cancelAnimationFrame(this.raf); clearTimeout(this.timer); this.raf = this.timer = 0; }
 
   // Records the move in real time. audio: optional { samples: Float32Array, rate }.
   async record(motion, opts, seconds, audio, onTick) {
@@ -119,14 +119,15 @@ export class MotionRenderer {
     rec.start(250);
     src?.start();
     const start = performance.now();
+    // Timer, not requestAnimationFrame: rAF stops completely in a hidden tab and the render would hang.
     await new Promise(resolve => {
-      const loop = now => {
-        const t = Math.min(1, (now - start) / 1000 / seconds);
+      const loop = () => {
+        const t = Math.min(1, (performance.now() - start) / 1000 / seconds);
         this.draw(motion, t, opts);
         onTick?.(t);
-        if (t < 1) this.raf = requestAnimationFrame(loop); else resolve();
+        if (t < 1) this.timer = setTimeout(loop, 1000 / 30); else resolve();
       };
-      this.raf = requestAnimationFrame(loop);
+      loop();
     });
     rec.stop();
     await finished;

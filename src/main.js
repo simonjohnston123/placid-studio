@@ -16,6 +16,12 @@ function client(worker) {
     else if (data.type === 'error') { pending.delete(data.id); p.reject(new Error(data.message)); }
     else p.onEvent?.(data);
   };
+  // A worker that dies (usually out of memory) must not leave the UI waiting forever.
+  worker.onerror = e => {
+    e.preventDefault?.();
+    for (const p of pending.values()) p.reject(new Error('The AI model stopped: this device probably ran out of memory. Close other tabs and try again.'));
+    pending.clear();
+  };
   return (msg, onEvent, transfer = []) => new Promise((resolve, reject) => {
     const id = ++n;
     pending.set(id, { resolve, reject, onEvent });
@@ -141,7 +147,7 @@ async function renderVideo({ blob, motion, seconds, intensity = 1, grain = 0.03,
   const r = heroCanvas();
   r.load(bmp, depth);
   job.text('Recording video…');
-  const video = await r.record(motion, { intensity, grain }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}%`));
+  const video = await r.record(motion, { intensity, grain }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
   const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
   await saveItem({ kind: 'video', blob: video, prompt, motion, ext });
   showVideo(video, ext);
