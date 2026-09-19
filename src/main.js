@@ -220,7 +220,12 @@ function paintProduct() {
 // Built only from the page's own facts: no invented claims, urgency or discounts.
 function productScript(c) {
   const title = c.title.replace(/\s*[|–—]\s*/g, ', ');
-  const firstSentence = s => (String(s || '').match(/^[^.!?\n]{12,160}[.!?]?/) || [''])[0].trim();
+  // Skip heading lines like "Specifications" / "Description": a real sentence has at least 6 words.
+  const firstSentence = s => {
+    const line = String(s || '').split(/\n+/).map(l => l.trim()).find(l => l.split(/\s+/).length >= 6) || '';
+    const m = line.match(/^.{20,180}?[.!?](\s|$)/);
+    return (m ? m[0] : line.length <= 180 ? line : '').trim();
+  };
   const benefit = firstSentence(c.features?.[0]) || firstSentence(c.description);
   const parts = [`${title}.`];
   if (benefit) parts.push(benefit.replace(/[.!?]*$/, '.'));
