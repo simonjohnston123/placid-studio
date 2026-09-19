@@ -145,12 +145,14 @@ function heroCanvas() {
 
 // One or more photos, each with its own camera move, cut together into one video.
 const SHOT_MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
+// Every render starts the moves at a different point, so two ads never cut the same way.
+const shotMove = i => SHOT_MOVES[(i + Math.floor(Math.random() * SHOT_MOVES.length)) % SHOT_MOVES.length];
 async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null }) {
   const list = blobs?.length ? blobs : [blob];
   const shots = [];
   for (const [i, b] of list.entries()) {
     job.text(list.length > 1 ? `Reading depth of photo ${i + 1} of ${list.length}…` : 'Reading scene depth…');
-    shots.push({ image: await createImageBitmap(b), depth: await depthFor(b), motion: i === 0 ? motion : SHOT_MOVES[i % SHOT_MOVES.length] });
+    shots.push({ image: await createImageBitmap(b), depth: await depthFor(b), motion: i === 0 ? motion : shotMove(i) });
   }
   const r = heroCanvas();
   r.setFrame(format, caption);
@@ -219,6 +221,14 @@ function paintProduct() {
 }
 
 // Built only from the page's own facts: no invented claims, urgency or discounts.
+// Ad copy that sounds like a person talking to a customer, built ONLY from the
+// product page's own facts. Every render picks different wording.
+//
+// No invented urgency. "Only a few left" appears only when the shop reports a
+// genuinely low stock count, because under Australian consumer law a scarcity
+// claim in an ad has to be true.
+const pick = list => list[Math.floor(Math.random() * list.length)];
+
 function productScript(c) {
   const title = c.title.replace(/\s*[|–—]\s*/g, ', ');
   // Skip heading lines like "Specifications" / "Description": a real sentence has at least 6 words.
@@ -227,16 +237,56 @@ function productScript(c) {
     const m = line.match(/^.{20,180}?[.!?](\s|$)/);
     return (m ? m[0] : line.length <= 180 ? line : '').trim();
   };
-  const benefit = firstSentence(c.features?.[0]) || firstSentence(c.description);
-  const parts = [`${title}.`];
-  if (benefit) parts.push(benefit.replace(/[.!?]*$/, '.'));
-  if (c.priceCents) {
-    const dollars = c.priceCents % 100 ? (c.priceCents / 100).toFixed(2) : String(c.priceCents / 100);
-    parts.push(`$${dollars}, with delivery worked out for your postcode.`);
-  }
-  parts.push('Find it at Placid Deals dot com.');
-  return parts.join(' ');
+  // The description usually opens by repeating the product's name, which sounds
+  // robotic straight after the opener. Swap that lead-in for "It".
+  // Eats however many opening words belong to the product's name — "The Midea P7
+  // BLDC Stick Vacuum has…" becomes "It has…" — without guessing the name's length.
+  const deName = t => {
+    if (!t) return t;
+    const inTitle = new Set(String(c.title).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    const toks = t.split(/\s+/);
+    let start = /^the$/i.test(toks[0]) ? 1 : 0;
+    let end = start;
+    while (end < toks.length && inTitle.has(toks[end].toLowerCase().replace(/[^a-z0-9]/g, ''))) end++;
+    return end - start >= 2 ? `It ${toks.slice(end).join(' ')}` : t;
+  };
+  const benefit = deName(firstSentence(c.features?.[0]) || firstSentence(c.description));
+  const money = c.priceCents ? `$${c.priceCents % 100 ? (c.priceCents / 100).toFixed(2) : c.priceCents / 100}` : null;
+
+  const opener = pick([
+    `Have a look at this one — the ${title}.`,
+    `Let me show you the ${title}.`,
+    `This is the ${title}, and it's worth two minutes of your time.`,
+    `If you've been looking for one of these, here's the ${title}.`,
+    `Right, the ${title}. Here's what you get.`,
+  ]);
+  // Don't let the opener and the next line both start with "Here's".
+  const bridge = benefit ? pick(opener.includes("Here's") ? [benefit.replace(/[.!?]*$/, '.')] : [
+    `Here's the part that matters. ${benefit.replace(/[.!?]*$/, '.')}`,
+    `${benefit.replace(/[.!?]*$/, '.')}`,
+    `What you'll notice first: ${benefit.replace(/^./, m => m.toLowerCase()).replace(/[.!?]*$/, '.')}`,
+  ]) : null;
+  const priceLine = money ? pick([
+    `It's ${money}, and delivery is worked out for your postcode before you pay.`,
+    `Yours for ${money}. We check delivery to your postcode before you pay a cent.`,
+    `${money}, with delivery priced for where you actually live.`,
+  ]) : null;
+  // TRUE scarcity only: the shop's own stock count, and only when it is low.
+  const stock = typeof c.stockQuantity === 'number' && c.stockQuantity > 0 && c.stockQuantity <= 5
+    ? pick([
+        `There are only ${c.stockQuantity} left in stock right now.`,
+        `Fair warning — stock is down to ${c.stockQuantity}.`,
+      ])
+    : null;
+  const close = pick([
+    `You'll find it at Placid Deals dot com.`,
+    `It's waiting for you at Placid Deals dot com.`,
+    `Head to Placid Deals dot com and check your postcode.`,
+    `Placid Deals dot com — have a look while it's there.`,
+  ]);
+  return [opener, bridge, priceLine, stock, close].filter(Boolean).join(' ');
 }
+
 
 // "Use my own voice": an uploaded recording replaces the generated voiceover
 // everywhere, including the presenter's lip-sync.
@@ -250,6 +300,20 @@ async function pickedRecording(id) {
   const voice = { ...(await audioFromBlob(file)), text: file.name };
   await saveItem({ kind: 'audio', blob: file, prompt: `Your recording: ${file.name}` });
   return voice;
+}
+
+function faceZone(el) {
+  if (!el) return;
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
+  el.after(input);
+  const paint = () => (el.innerHTML = S.face ? `<img src="${S.face.url}" alt=""><span>Click to change</span>` : 'Drop a portrait here or click to upload');
+  const set = file => { S.face = { blob: file, url: URL.createObjectURL(file), points: null }; paint(); };
+  el.onclick = () => input.click();
+  input.onchange = () => input.files[0] && set(input.files[0]);
+  el.ondragover = e => { e.preventDefault(); el.classList.add('over'); };
+  el.ondragleave = () => el.classList.remove('over');
+  el.ondrop = e => { e.preventDefault(); el.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) set(f); };
+  paint();
 }
 
 function dropZone(el, onFile) {
@@ -268,6 +332,24 @@ function dropZone(el, onFile) {
   el.ondrop = e => { e.preventDefault(); el.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) set(f); };
   function set(file) { S.source = { blob: file, url: URL.createObjectURL(file), prompt: file.name }; paint(); onFile?.(); }
   paint();
+}
+
+// Records the presenter (optionally over product photos). Shared by the Presets and Presenter panels.
+async function presenterVideo({ faceBlob, voice, format, caption, backdropBlobs, aiTag = true }) {
+  const bmp = await createImageBitmap(faceBlob);
+  if (!S.face.points) { job.text('Finding the face…'); S.face.points = await detectFace(bmp); }
+  const pres = new Presenter();
+  pres.load(bmp, S.face.points);
+  const backdrop = backdropBlobs?.length ? await Promise.all(backdropBlobs.map(b => createImageBitmap(b))) : null;
+  $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas></div>`;
+  job.text('Recording presenter…');
+  const video = await recordPresenter(pres, $('#pc'), FORMATS[format]?.size || null, voice, {
+    caption, aiTag, backdrop,
+    onTick: t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`),
+  });
+  const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
+  await saveItem({ kind: 'video', blob: video, prompt: caption?.title ? `Presenter: ${caption.title}` : 'Presenter', ext });
+  showVideo(video, ext);
 }
 
 // ---------- panels ----------
@@ -297,8 +379,14 @@ const panels = {
       <div id="voBox" hidden>
         <label class="f" for="script">Voiceover script</label>
         <textarea id="script" placeholder="Where the storm meets the sea, one light keeps watch."></textarea>
+        <button class="btn sm" id="rewrite" type="button">New wording</button>
         <label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select>
         ${recordingField('voFile')}
+      </div>
+      <label class="check"><input type="checkbox" id="usePresenter"> Add a presenter reading it</label>
+      <div id="presenterBox" hidden>
+        <label class="f">Presenter photo</label>
+        <div class="drop" id="faceDrop"></div>
       </div>
       <button class="btn primary" id="go">Create video</button>
       <p class="note">A loaded product is used first, then an uploaded image; otherwise a new image is generated from your description in the chosen style.</p>`;
@@ -312,6 +400,9 @@ const panels = {
     });
     $('#motion').onchange = e => (S.motion = e.target.value);
     $('#vo').onchange = e => ($('#voBox').hidden = !e.target.checked);
+    $('#usePresenter').onchange = e => ($('#presenterBox').hidden = !e.target.checked);
+    faceZone($('#faceDrop'));
+    $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
     const load = () => {
       const link = $('#link').value.trim();
       if (!link) return $('#link').focus();
@@ -334,6 +425,7 @@ const panels = {
       const wantVoice = $('#vo').checked && $('#script').value.trim();
       const seconds = +$('#len').value, motion = $('#motion').value, format = $('#format').value;
       const preset = S.preset, script = $('#script').value.trim(), voiceId = $('#voice').value;
+      const withPresenter = $('#usePresenter').checked && S.face;
       run('Starting…', async () => {
         let voice = await pickedRecording('voFile');
         if (!voice && wantVoice) {
@@ -345,6 +437,10 @@ const panels = {
           if (!blobs.length) throw new Error('Tick at least one product photo.');
           const c = product.card;
           const caption = { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') };
+          if (withPresenter) {
+            if (!voice) throw new Error('A presenter needs a voice: tick "Add a voiceover" or upload a recording.');
+            return presenterVideo({ faceBlob: S.face.blob, voice, format, caption, backdropBlobs: blobs });
+          }
           return renderVideo({ blobs, motion, seconds, voice, prompt: c.title, format, caption });
         }
         let blob = S.source?.blob, prompt = text || S.source?.prompt;
@@ -482,6 +578,7 @@ const panels = {
       <p class="note">Use a clear, front-facing head-and-shoulders photo with the mouth closed. Only use someone who has agreed to be your presenter.</p>
       <label class="f" for="script">Script</label>
       <textarea id="script" placeholder="Hi, I'm here to show you this week's best finds.">${S.product ? esc(productScript(S.product.card)) : ''}</textarea>
+      ${S.product ? '<button class="btn sm" id="rewrite" type="button">New wording</button>' : ''}
       <div class="row">
         <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
         <div><label class="f" for="speed">Speed</label><select id="speed"><option value="0.9">Slow</option><option value="1" selected>Normal</option><option value="1.1">Fast</option></select></div>
@@ -494,18 +591,8 @@ const panels = {
       <label class="check"><input type="checkbox" id="aiTag" checked> Show an "AI presenter" label</label>
       <div class="row" style="margin-top:18px"><button class="btn" id="prev">Preview face</button></div>
       <button class="btn primary" id="go">Create presenter video</button>`;
-    const faceDrop = $('#faceDrop');
-    const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
-    faceDrop.after(input);
-    const paint = () => (faceDrop.innerHTML = S.face ? `<img src="${S.face.url}" alt=""><span>Click to change</span>` : 'Drop a portrait here or click to upload');
-    const setFace = file => { S.face = { blob: file, url: URL.createObjectURL(file), points: null }; paint(); };
-    faceDrop.onclick = () => input.click();
-    input.onchange = () => input.files[0] && setFace(input.files[0]);
-    faceDrop.ondragover = e => { e.preventDefault(); faceDrop.classList.add('over'); };
-    faceDrop.ondragleave = () => faceDrop.classList.remove('over');
-    faceDrop.ondrop = e => { e.preventDefault(); faceDrop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) setFace(f); };
-    paint();
-
+    faceZone($('#faceDrop'));
+    if ($('#rewrite')) $('#rewrite').onclick = () => ($('#script').value = productScript(S.product.card));
     const prepare = async () => {
       const bmp = await createImageBitmap(S.face.blob);
       if (!S.face.points) { job.text('Finding the face…'); S.face.points = await detectFace(bmp); }
@@ -536,17 +623,8 @@ const panels = {
       run('Starting…', async () => {
         const backdrop = productPhotos ? await Promise.all(productPhotos.map(b => createImageBitmap(b))) : null;
         stopPreview?.(); stopPreview = null;
-        const pres = await prepare();
         const voice = (await pickedRecording('voFile')) || await speak(script, voiceId, speed);
-        $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas></div>`;
-        job.text('Recording presenter…');
-        const video = await recordPresenter(pres, $('#pc'), size, voice, {
-          caption, aiTag, backdrop,
-          onTick: t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`),
-        });
-        const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
-        await saveItem({ kind: 'video', blob: video, prompt: 'Presenter: ' + script, ext });
-        showVideo(video, ext);
+        await presenterVideo({ faceBlob: S.face.blob, voice, format: $('#format').value, caption, backdropBlobs: productPhotos, aiTag });
       });
     };
   },
