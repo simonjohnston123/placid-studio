@@ -517,6 +517,9 @@ $('#out').addEventListener('click', e => { const b = e.target.closest('[data-go]
 
 // ---------- boot ----------
 (async () => {
+  // ~1.7 GB of models live in the browser cache. Ask the browser not to evict
+  // them under storage pressure, or every visit re-downloads them.
+  try { await navigator.storage?.persist?.(); } catch {}
   try { S.gpu = await gen({ op: 'gpu' }); } catch {}
   const d = $('#device');
   if (S.gpu.ok) { d.textContent = 'WebGPU ready · all features available'; d.classList.add('ok'); }
