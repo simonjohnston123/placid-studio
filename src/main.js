@@ -2,6 +2,7 @@ import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
 import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav } from './store.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
+import { productScript, productCaption } from './adcopy.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -221,71 +222,9 @@ function paintProduct() {
 }
 
 // Built only from the page's own facts: no invented claims, urgency or discounts.
-// Ad copy that sounds like a person talking to a customer, built ONLY from the
-// product page's own facts. Every render picks different wording.
-//
-// No invented urgency. "Only a few left" appears only when the shop reports a
-// genuinely low stock count, because under Australian consumer law a scarcity
-// claim in an ad has to be true.
+// Ad copy lives in adcopy.js: hook, the thing, one concrete fact, price, one instruction.
+// `pick` stays here because the panels use it for avatar variety.
 const pick = list => list[Math.floor(Math.random() * list.length)];
-
-function productScript(c) {
-  const title = c.title.replace(/\s*[|–—]\s*/g, ', ');
-  // Skip heading lines like "Specifications" / "Description": a real sentence has at least 6 words.
-  const firstSentence = s => {
-    const line = String(s || '').split(/\n+/).map(l => l.trim()).find(l => l.split(/\s+/).length >= 6) || '';
-    const m = line.match(/^.{20,180}?[.!?](\s|$)/);
-    return (m ? m[0] : line.length <= 180 ? line : '').trim();
-  };
-  // The description usually opens by repeating the product's name, which sounds
-  // robotic straight after the opener. Swap that lead-in for "It".
-  // Eats however many opening words belong to the product's name — "The Midea P7
-  // BLDC Stick Vacuum has…" becomes "It has…" — without guessing the name's length.
-  const deName = t => {
-    if (!t) return t;
-    const inTitle = new Set(String(c.title).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
-    const toks = t.split(/\s+/);
-    let start = /^the$/i.test(toks[0]) ? 1 : 0;
-    let end = start;
-    while (end < toks.length && inTitle.has(toks[end].toLowerCase().replace(/[^a-z0-9]/g, ''))) end++;
-    return end - start >= 2 ? `It ${toks.slice(end).join(' ')}` : t;
-  };
-  const benefit = deName(firstSentence(c.features?.[0]) || firstSentence(c.description));
-  const money = c.priceCents ? `$${c.priceCents % 100 ? (c.priceCents / 100).toFixed(2) : c.priceCents / 100}` : null;
-
-  const opener = pick([
-    `Have a look at this one — the ${title}.`,
-    `Let me show you the ${title}.`,
-    `This is the ${title}, and it's worth two minutes of your time.`,
-    `If you've been looking for one of these, here's the ${title}.`,
-    `Right, the ${title}. Here's what you get.`,
-  ]);
-  // Don't let the opener and the next line both start with "Here's".
-  const bridge = benefit ? pick(opener.includes("Here's") ? [benefit.replace(/[.!?]*$/, '.')] : [
-    `Here's the part that matters. ${benefit.replace(/[.!?]*$/, '.')}`,
-    `${benefit.replace(/[.!?]*$/, '.')}`,
-    `What you'll notice first: ${benefit.replace(/^./, m => m.toLowerCase()).replace(/[.!?]*$/, '.')}`,
-  ]) : null;
-  const priceLine = money ? pick([
-    `It's ${money}, and delivery is worked out for your postcode before you pay.`,
-    `Yours for ${money}. We check delivery to your postcode before you pay a cent.`,
-    `${money}, with delivery priced for where you actually live.`,
-  ]) : null;
-  // TRUE scarcity only: the shop's own stock count, and only when it is low.
-  const stock = typeof c.stockQuantity === 'number' && c.stockQuantity > 0 && c.stockQuantity <= 5
-    ? pick([
-        `There are only ${c.stockQuantity} left in stock right now.`,
-        `Fair warning — stock is down to ${c.stockQuantity}.`,
-      ])
-    : null;
-  const close = pick([
-    `You'll find it at Placid Deals dot com.`,
-    `It's waiting for you at Placid Deals dot com.`,
-    `Head to Placid Deals dot com and check your postcode.`,
-    `Placid Deals dot com — have a look while it's there.`,
-  ]);
-  return [opener, bridge, priceLine, stock, close].filter(Boolean).join(' ');
-}
 
 
 // "Use my own voice": an uploaded recording replaces the generated voiceover
@@ -471,7 +410,7 @@ const panels = {
           const blobs = product.photos.filter((_, i) => product.use[i]);
           if (!blobs.length) throw new Error('Tick at least one product photo.');
           const c = product.card;
-          const caption = { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') };
+          const caption = productCaption(c);
           if (withPresenter) {
             // Never fall back silently: a ticked presenter with no face is a mistake worth saying out loud.
             if (!S.face) throw new Error('Add a presenter photo, or press "Create a presenter" to have the studio make one.');
@@ -658,7 +597,7 @@ const panels = {
       if (!script && !$('#voFile').files[0]) return $('#script').focus();
       const voiceId = $('#voice').value, speed = +$('#speed').value, size = sizeOf();
       const c = $('#useProduct')?.checked ? S.product.card : null;
-      const caption = c ? { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') } : null;
+      const caption = c ? productCaption(c) : null;
       const aiTag = $('#aiTag').checked;
       const productPhotos = $('#withProduct')?.checked ? S.product.photos.filter((_, i) => S.product.use[i]) : null;
       run('Starting…', async () => {
