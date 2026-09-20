@@ -86,14 +86,30 @@ export class MotionRenderer {
 
     const size = FORMATS[this.format]?.size || [this.gc.width, this.gc.height];
     if (this.out.width !== size[0] || this.out.height !== size[1]) { this.out.width = size[0]; this.out.height = size[1]; }
-    // Blurred fill behind a photo that does not match the frame shape (product shots in 9:16).
+    // The photo's own background colour behind it, rather than a blurred copy:
+    // a product shot on white gets clean white, one on black gets black. The
+    // blurred version read as a grey smudge around the product.
     this.bg = null;
     if (FORMATS[this.format]?.size) {
+      const probe = document.createElement('canvas');
+      probe.width = 32; probe.height = 32;
+      const pc = probe.getContext('2d', { willReadFrequently: true });
+      pc.drawImage(image, 0, 0, 32, 32);
+      const d = pc.getImageData(0, 0, 32, 32).data;
+      // Edge pixels only — the middle is the product, the border is its backdrop.
+      const rs = [], gs = [], bs = [];
+      for (let y = 0; y < 32; y++) {
+        for (let x = 0; x < 32; x++) {
+          if (x > 2 && x < 29 && y > 2 && y < 29) continue;
+          const i = (y * 32 + x) * 4;
+          rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]);
+        }
+      }
+      const mid = a => a.sort((p, q) => p - q)[a.length >> 1];
       const bg = document.createElement('canvas'); bg.width = size[0]; bg.height = size[1];
       const b = bg.getContext('2d');
-      const k = Math.max(size[0] / image.width, size[1] / image.height) * 1.15;
-      b.filter = 'blur(28px) brightness(0.7)';
-      b.drawImage(image, (size[0] - image.width * k) / 2, (size[1] - image.height * k) / 2, image.width * k, image.height * k);
+      b.fillStyle = `rgb(${mid(rs)}, ${mid(gs)}, ${mid(bs)})`;
+      b.fillRect(0, 0, size[0], size[1]);
       this.bg = bg;
     }
   }

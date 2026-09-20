@@ -176,7 +176,7 @@ function drawHook(c, W, H, text, alpha) {
   const pad = W * 0.07;
   const { fs, lines } = fitText(c, text.toUpperCase(), W - pad * 2, 800, Math.round(W * 0.095), 3);
   const lh = fs * 1.15, boxH = lines.length * lh + pad * 0.8;
-  const y = H * 0.16;
+  const y = H * 0.175;
   c.fillStyle = 'rgba(0,0,0,.55)';
   roundRect(c, pad * 0.5, y - pad * 0.4, W - pad, boxH, W * 0.035); c.fill();
   c.textBaseline = 'top'; c.textAlign = 'center';
@@ -195,7 +195,7 @@ function drawCaption(c, W, H, text) {
   const pad = W * 0.08;
   const { fs, lines } = fitText(c, text, W - pad * 2, 700, Math.round(W * 0.062), 2);
   const lh = fs * 1.2;
-  let y = H * 0.74;
+  let y = H * 0.70;
   c.textAlign = 'center'; c.textBaseline = 'top';
   for (const l of lines) {
     c.strokeStyle = 'rgba(0,0,0,.8)'; c.lineWidth = fs * 0.18; c.lineJoin = 'round';
@@ -207,26 +207,126 @@ function drawCaption(c, W, H, text) {
   c.restore();
 }
 
-function drawLogo(c, W, H, logo) {
-  if (!logo) return;
-  const w = Math.min(W * 0.30, W * 0.30), h = w * (logo.height / logo.width);
+// PLACID DEALS TEMPLATE
+// Brand colours taken from the logo: deep purple field, violet mark, white type.
+const BRAND = { deep: '#1E0733', deep2: '#2C0B4E', violet: '#8B5CF6', light: '#A78BFA', ink: '#ffffff' };
+
+/**
+ * The logo mark, drawn rather than loaded: a tag inside a D. If a real logo file
+ * has been loaded in the studio it is used instead of this, unchanged.
+ */
+function drawMark(c, x, y, size) {
   c.save();
-  c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = W * 0.02;
-  c.drawImage(logo, W * 0.05, H * 0.045, w, h);
+  c.translate(x, y);
+  const s = size / 64;
+  c.scale(s, s);
+  const g = c.createLinearGradient(0, 0, 64, 64);
+  g.addColorStop(0, BRAND.light); g.addColorStop(1, BRAND.violet);
+  // D
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(14, 8); c.lineTo(34, 8);
+  c.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2);
+  c.lineTo(14, 56); c.closePath();
+  c.fill();
+  // counter
+  c.globalCompositeOperation = 'destination-out';
+  c.beginPath();
+  c.moveTo(26, 20); c.lineTo(34, 20);
+  c.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2);
+  c.lineTo(26, 44); c.closePath();
+  c.fill();
+  c.globalCompositeOperation = 'source-over';
+  // price tag through the middle
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(20, 46); c.lineTo(20, 26); c.lineTo(34, 12); c.lineTo(44, 22); c.lineTo(30, 36); c.lineTo(30, 46);
+  c.closePath(); c.fill();
+  c.fillStyle = BRAND.deep;
+  c.beginPath(); c.arc(35, 21, 2.6, 0, Math.PI * 2); c.fill();
   c.restore();
 }
 
-/** The shop address, on screen the whole way through. */
-function drawSiteTag(c, W, H, host) {
+// PLACID over DEALS, with the flanking rules from the logo.
+function drawWordmark(c, x, y, size, centred = false) {
   c.save();
-  const fs = Math.round(W * 0.042);
-  c.font = `700 ${fs}px ${FONT}`;
-  const w = c.measureText(host).width + fs * 1.1, h = fs * 1.5;
-  const x = W * 0.05, y = H * 0.885;
-  c.fillStyle = 'rgba(0,0,0,.45)';
-  roundRect(c, x, y, w, h, h / 2); c.fill();
-  c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(host, x + w / 2, y + h / 2 + 1);
+  c.textBaseline = 'top'; c.textAlign = centred ? 'center' : 'left';
+  c.font = `700 ${size}px ${FONT}`;
+  c.fillStyle = BRAND.ink;
+  c.letterSpacing = `${size * 0.16}px`;
+  c.fillText('PLACID', x, y);
+  const w = c.measureText('PLACID').width;
+  const y2 = y + size * 1.12;
+  c.font = `600 ${size * 0.6}px ${FONT}`;
+  c.fillStyle = BRAND.light;
+  c.letterSpacing = `${size * 0.26}px`;
+  c.fillText('DEALS', x, y2);
+  const dw = c.measureText('DEALS').width;
+  c.letterSpacing = '0px';
+  // the two rules either side of DEALS
+  const midY = y2 + size * 0.3, gap = size * 0.22, rule = size * 0.5;
+  const left = centred ? x - dw / 2 : x;
+  c.strokeStyle = BRAND.violet; c.lineWidth = Math.max(1, size * 0.06);
+  c.beginPath();
+  c.moveTo(left - gap - rule, midY); c.lineTo(left - gap, midY);
+  c.moveTo(left + dw + gap, midY); c.lineTo(left + dw + gap + rule, midY);
+  c.stroke();
+  c.restore();
+  return w;
+}
+
+/** The surround: brand bars top and bottom, with a thin violet edge between them. */
+function drawSurround(c, W, H, { logo, host, price }) {
+  const top = H * 0.105, bottom = H * 0.095;
+  c.save();
+  // top bar
+  const gt = c.createLinearGradient(0, 0, W, top);
+  gt.addColorStop(0, BRAND.deep); gt.addColorStop(1, BRAND.deep2);
+  c.fillStyle = gt; c.fillRect(0, 0, W, top);
+  // bottom bar
+  c.fillStyle = BRAND.deep; c.fillRect(0, H - bottom, W, bottom);
+  // edges
+  c.strokeStyle = BRAND.violet; c.lineWidth = Math.max(2, W * 0.006);
+  c.beginPath(); c.moveTo(0, top); c.lineTo(W, top); c.moveTo(0, H - bottom); c.lineTo(W, H - bottom); c.stroke();
+  c.strokeRect(c.lineWidth / 2, c.lineWidth / 2, W - c.lineWidth, H - c.lineWidth);
+
+  const pad = W * 0.05, markSize = top * 0.52;
+  if (logo) {
+    const h = markSize * 1.25, w = h * (logo.width / logo.height);
+    c.drawImage(logo, pad, (top - h) / 2, w, h);
+  } else {
+    drawMark(c, pad, (top - markSize) / 2, markSize);
+    const fs = markSize * 0.42;
+    c.save();
+    c.textBaseline = 'middle'; c.textAlign = 'left';
+    c.font = `700 ${fs}px ${FONT}`;
+    c.letterSpacing = `${fs * 0.16}px`;
+    c.fillStyle = BRAND.ink;
+    const x0 = pad + markSize * 1.3;
+    c.fillText('PLACID', x0, top / 2);
+    const w0 = c.measureText('PLACID').width + fs * 0.5;
+    c.fillStyle = BRAND.light;
+    c.fillText('DEALS', x0 + w0, top / 2);
+    c.letterSpacing = '0px';
+    c.restore();
+  }
+
+  // price, top right
+  if (price) {
+    const fs = Math.round(W * 0.055);
+    c.font = `800 ${fs}px ${FONT}`;
+    const w = c.measureText(price).width + fs * 1.1, h = fs * 1.5;
+    const x = W - w - pad, y = (top - h) / 2;
+    c.fillStyle = BRAND.violet;
+    roundRect(c, x, y, w, h, h / 2); c.fill();
+    c.fillStyle = BRAND.ink; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(price, x + w / 2, y + h / 2 + 1);
+  }
+
+  // shop address, bottom bar
+  c.font = `700 ${Math.round(W * 0.045)}px ${FONT}`;
+  c.fillStyle = BRAND.ink; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(host, W / 2, H - bottom / 2);
   c.restore();
 }
 
@@ -248,7 +348,7 @@ function drawEndCard(c, W, H, { title, host, price, logo, payments }, alpha) {
   if (alpha <= 0) return;
   c.save();
   c.globalAlpha = alpha;
-  c.fillStyle = 'rgba(8,12,16,.86)';
+  c.fillStyle = 'rgba(30,7,51,.93)';
   c.fillRect(0, 0, W, H);
   const pad = W * 0.09;
   c.textAlign = 'center';
@@ -260,7 +360,7 @@ function drawEndCard(c, W, H, { title, host, price, logo, payments }, alpha) {
   y += t.lines.length * t.fs * 1.15 + H * 0.02;
   if (price) {
     c.font = `800 ${Math.round(W * 0.11)}px ${FONT}`;
-    c.fillStyle = '#5eead4';
+    c.fillStyle = BRAND.light;
     c.fillText(price, W / 2, y);
     y += W * 0.15;
   }
@@ -281,6 +381,10 @@ function drawEndCard(c, W, H, { title, host, price, logo, payments }, alpha) {
   if (logo) {
     const w = W * 0.34, h = w * (logo.height / logo.width);
     c.drawImage(logo, (W - w) / 2, H * 0.12, w, h);
+  } else {
+    const size = W * 0.20;
+    drawMark(c, (W - size) / 2, H * 0.09, size);
+    drawWordmark(c, W / 2, H * 0.09 + size * 1.25, W * 0.062, true);
   }
   c.restore();
 }
@@ -290,9 +394,7 @@ export function reelOverlay({ hook, cues, price, title, host, seconds, logo = nu
   const endFrom = Math.max(seconds - 2.2, seconds * 0.82);
   return (c, t) => {
     const W = c.canvas.width, H = c.canvas.height;
-    drawPrice(c, W, H, price);
-    drawLogo(c, W, H, logo);
-    if (t < endFrom) drawSiteTag(c, W, H, host);
+    if (t < endFrom) drawSurround(c, W, H, { logo, host, price });
     // Hook: full strength for the first 2 seconds, then out by 2.6s.
     drawHook(c, W, H, hook, t < 2 ? Math.min(1, t / 0.25) : Math.max(0, 1 - (t - 2) / 0.6));
     const cue = cues.find(q => t >= q.t0 && t < q.t1);
