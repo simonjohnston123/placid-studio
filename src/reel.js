@@ -105,6 +105,10 @@ export function captionCues(script, voice) {
     else { if (runStart !== null && (i - runStart) * 0.03 > 0.18) gaps.push(((runStart + i) / 2) * 0.03); runStart = null; }
   });
 
+  // "Placid Deals dot com" is how it must be SPOKEN; on screen it has to read
+  // placiddeals.com. The voice keeps the spoken form, the captions get the written one.
+  script = writtenForm(script);
+
   // Break at punctuation first, then by words — a caption that ends mid-phrase
   // ("Vacuum. BLDC Motor: saves") is harder to read than one that ends on a comma.
   const phrases = script.replace(/\s+/g, ' ').trim()
@@ -134,6 +138,15 @@ export function captionCues(script, voice) {
     t = cues[cues.length - 1].t1;
   });
   return cues;
+}
+
+/** Spoken spellings turned back into written ones for anything shown on screen. */
+export function writtenForm(text) {
+  return String(text || '')
+    .replace(/\bplacid\s+deals\s+dot\s+com\b/gi, 'placiddeals.com')
+    .replace(/\b([a-z0-9-]+)\s+dot\s+(com|com\.au|net|org|co)\b/gi, (m, a, b) => `${a}.${b}`)
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /* ---------- on-screen furniture ---------- */

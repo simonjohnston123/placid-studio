@@ -166,7 +166,11 @@ export class MotionRenderer {
   /** opts.onFrame(ctx, t, i) draws over every frame — captions, hook, end card. */
   async record(shots, opts, seconds, audio, onTick) {
     this.stop();
-    const stream = this.out.captureStream(30);
+    // captureStream(0) + requestFrame(): a hidden or backgrounded tab stops
+    // feeding an automatic capture, which silently freezes the picture while the
+    // audio keeps running. Pushing each frame by hand is immune to that.
+    const stream = this.out.captureStream(0);
+    const videoTrack = stream.getVideoTracks()[0];
     let ctx = null, src = null;
     if (audio) {
       ctx = new AudioContext();
@@ -189,6 +193,7 @@ export class MotionRenderer {
     const show = i => { if (i !== current) { current = i; this.load(shots[i].image, shots[i].depth); } };
     show(0);
     this.draw(shots[0].motion, 0, opts);
+    videoTrack.requestFrame();
     rec.start(250);
     src?.start();
     const start = performance.now();
@@ -203,6 +208,7 @@ export class MotionRenderer {
         const fade = shots.length > 1 ? Math.min(1, (elapsed - i * per) / 0.3) : 1;
         this.draw(shots[i].motion, local, { ...opts, alpha: fade });
         opts.onFrame?.(this.ctx, elapsed, i);
+        videoTrack.requestFrame();
         onTick?.(t);
         if (t < 1) this.timer = setTimeout(loop, 1000 / 30); else resolve();
       };

@@ -67,7 +67,9 @@ export async function lipSyncVideo({ file, audio, outCanvas, caption = null, aiT
     return (k < srcFrames ? k : period - k) / fps;
   };
 
-  const stream = outCanvas.captureStream(fps);
+  // Frames pushed by hand: an automatic capture freezes in a hidden tab.
+  const stream = outCanvas.captureStream(0);
+  const videoTrack = stream.getVideoTracks()[0];
   const actx = new AudioContext();
   const buf = actx.createBuffer(1, audio.samples.length, audio.rate);
   buf.copyToChannel(audio.samples, 0);
@@ -127,6 +129,7 @@ export async function lipSyncVideo({ file, audio, outCanvas, caption = null, aiT
     if (aiTag) aiLabel(ctx, outCanvas.width, outCanvas.height);
   };
   await draw(0);
+  videoTrack.requestFrame();
   rec.start(250);
   src.start();
   const t0 = actx.currentTime;
@@ -134,6 +137,7 @@ export async function lipSyncVideo({ file, audio, outCanvas, caption = null, aiT
     const loop = async () => {
       const t = actx.currentTime - t0;
       await draw(Math.floor(t * fps));
+      videoTrack.requestFrame();
       const done = Math.min(1, t / seconds);
       onTick?.(0.75 + done * 0.25, `${Math.round(done * 100)}% · keep this tab open`);
       if (t < seconds) setTimeout(loop, 1000 / fps); else resolve();

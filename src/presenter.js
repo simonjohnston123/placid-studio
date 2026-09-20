@@ -329,7 +329,9 @@ export async function recordPresenter(pres, outCanvas, size, audio, { caption = 
     if (aiTag) aiLabel(c, W, H);
   };
 
-  const stream = outCanvas.captureStream(fps);
+  // Frames pushed by hand: an automatic capture freezes in a hidden tab.
+  const stream = outCanvas.captureStream(0);
+  const videoTrack = stream.getVideoTracks()[0];
   const ctx = new AudioContext();
   const buf = ctx.createBuffer(1, audio.samples.length, audio.rate);
   buf.copyToChannel(audio.samples, 0);
@@ -343,6 +345,7 @@ export async function recordPresenter(pres, outCanvas, size, audio, { caption = 
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   const finished = new Promise(r => (rec.onstop = r));
   frame(0);
+  videoTrack.requestFrame();
   rec.start(250);
   src.start();
   // The frame shown is chosen from the audio clock, so lips stay in sync even if a frame is slow.
@@ -351,6 +354,7 @@ export async function recordPresenter(pres, outCanvas, size, audio, { caption = 
     const loop = () => {
       const t = ctx.currentTime - t0;
       frame(Math.floor(t * fps));
+      videoTrack.requestFrame();
       onTick?.(Math.min(1, t / seconds));
       if (t < seconds) setTimeout(loop, 1000 / fps); else resolve();
     };
