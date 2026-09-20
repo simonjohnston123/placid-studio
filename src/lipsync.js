@@ -134,7 +134,8 @@ export async function lipSyncVideo({ file, audio, outCanvas, caption = null, aiT
     const loop = async () => {
       const t = actx.currentTime - t0;
       await draw(Math.floor(t * fps));
-      onTick?.(0.75 + Math.min(1, t / seconds) * 0.25, `${Math.round((t / seconds) * 100)}% · keep this tab open`);
+      const done = Math.min(1, t / seconds);
+      onTick?.(0.75 + done * 0.25, `${Math.round(done * 100)}% · keep this tab open`);
       if (t < seconds) setTimeout(loop, 1000 / fps); else resolve();
     };
     loop();
