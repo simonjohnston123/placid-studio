@@ -302,12 +302,39 @@ async function pickedRecording(id) {
   return voice;
 }
 
+// A presenter the studio invents. Never a real person: using someone's face in an
+// ad needs their permission, and a public figure's face is never available at all.
+const AVATAR_AGE = ['in their twenties', 'in their thirties', 'in their forties', 'in their fifties'];
+const AVATAR_HAIR = ['short dark hair', 'short fair hair', 'long wavy hair', 'curly hair', 'closely cropped hair', 'grey hair', 'hair tied back'];
+const AVATAR_WEAR = ['plain t-shirt', 'casual button shirt', 'knit jumper', 'polo shirt', 'light blouse'];
+
+function avatarPrompt() {
+  return `studio portrait photograph of a person ${pick(AVATAR_AGE)}, ${pick(AVATAR_HAIR)}, wearing a ${pick(AVATAR_WEAR)}, `
+    + 'head and shoulders, facing the camera, mouth closed, relaxed friendly expression, '
+    + 'plain light grey background, soft even lighting, sharp focus, 85mm portrait lens';
+}
+
+async function makeAvatar() {
+  const [blob] = await generateImages(avatarPrompt(), 1);
+  job.text('Checking the face…');
+  const points = await detectFace(await createImageBitmap(blob));
+  await saveItem({ kind: 'image', blob, prompt: 'Generated presenter' });
+  S.face = { blob, url: URL.createObjectURL(blob), points, generated: true };
+}
+
 function faceZone(el) {
   if (!el) return;
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
   el.after(input);
-  const paint = () => (el.innerHTML = S.face ? `<img src="${S.face.url}" alt=""><span>Click to change</span>` : 'Drop a portrait here or click to upload');
-  const set = file => { S.face = { blob: file, url: URL.createObjectURL(file), points: null }; paint(); };
+  const paint = () => {
+    el.innerHTML = S.face
+      ? `<img src="${S.face.url}" alt=""><span>${S.face.generated ? 'Presenter made by the studio' : 'Click to change'}</span>`
+      : 'Drop a portrait here or click to upload';
+    const consent = el.parentElement.querySelector('.consent');
+    if (consent) consent.hidden = !S.face || S.face.generated;
+  };
+  const set = file => { S.face = { blob: file, url: URL.createObjectURL(file), points: null, generated: false }; paint(); };
+  el.repaint = paint;
   el.onclick = () => input.click();
   input.onchange = () => input.files[0] && set(input.files[0]);
   el.ondragover = e => { e.preventDefault(); el.classList.add('over'); };
@@ -385,8 +412,10 @@ const panels = {
       </div>
       <label class="check"><input type="checkbox" id="usePresenter"> Add a presenter reading it</label>
       <div id="presenterBox" hidden>
-        <label class="f">Presenter photo</label>
+        <label class="f">Presenter</label>
         <div class="drop" id="faceDrop"></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm" id="makeFace" type="button">Create a presenter</button></div>
+        <label class="check consent" hidden><input type="checkbox" id="consent"> This is me, or someone who agreed to be the presenter</label>
       </div>
       <button class="btn primary" id="go">Create video</button>
       <p class="note">A loaded product is used first, then an uploaded image; otherwise a new image is generated from your description in the chosen style.</p>`;
@@ -402,6 +431,8 @@ const panels = {
     $('#vo').onchange = e => ($('#voBox').hidden = !e.target.checked);
     $('#usePresenter').onchange = e => ($('#presenterBox').hidden = !e.target.checked);
     faceZone($('#faceDrop'));
+    $('#makeFace').onclick = () => run('Creating a presenter…', async () => { await makeAvatar(); $('#faceDrop').repaint(); });
+    $('#makeFace').onclick = () => run('Creating a presenter…', async () => { await makeAvatar(); $('#faceDrop').repaint(); });
     $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
     const load = () => {
       const link = $('#link').value.trim();
@@ -425,7 +456,11 @@ const panels = {
       const wantVoice = $('#vo').checked && $('#script').value.trim();
       const seconds = +$('#len').value, motion = $('#motion').value, format = $('#format').value;
       const preset = S.preset, script = $('#script').value.trim(), voiceId = $('#voice').value;
-      const withPresenter = $('#usePresenter').checked && S.face;
+      const withPresenter = $('#usePresenter').checked;
+      // Checked before any work starts: nobody should wait through a voiceover to be told the photo is missing.
+      if (withPresenter && !S.face) return showError(new Error('Add a presenter photo, or press "Create a presenter" to have the studio make one.'));
+      if (withPresenter && !S.face.generated && !$('#consent').checked) return showError(new Error('Tick the consent box, or press "Create a presenter" instead of using a real person\'s photo.'));
+      if (withPresenter && !wantVoice && !$('#voFile').files[0]) return showError(new Error('A presenter needs a voice: tick "Add a voiceover" or upload a recording.'));
       run('Starting…', async () => {
         let voice = await pickedRecording('voFile');
         if (!voice && wantVoice) {
@@ -438,6 +473,9 @@ const panels = {
           const c = product.card;
           const caption = { title: c.title, line: [c.priceLabel, new URL(c.url).host].filter(Boolean).join(' · ') };
           if (withPresenter) {
+            // Never fall back silently: a ticked presenter with no face is a mistake worth saying out loud.
+            if (!S.face) throw new Error('Add a presenter photo, or press "Create a presenter" to have the studio make one.');
+            if (!S.face.generated && !$('#consent').checked) throw new Error('Tick the consent box, or press "Create a presenter" instead of using a real person\'s photo.');
             if (!voice) throw new Error('A presenter needs a voice: tick "Add a voiceover" or upload a recording.');
             return presenterVideo({ faceBlob: S.face.blob, voice, format, caption, backdropBlobs: blobs });
           }
@@ -573,9 +611,11 @@ const panels = {
     $('#panel').innerHTML = `
       <h1>Presenter</h1>
       <p class="lede">A photo of a face reads your script. It runs on the processor, with no graphics chip needed.</p>
-      <label class="f">Presenter photo</label>
+      <label class="f">Presenter</label>
       <div class="drop" id="faceDrop"></div>
-      <p class="note">Use a clear, front-facing head-and-shoulders photo with the mouth closed. Only use someone who has agreed to be your presenter.</p>
+      <div class="row" style="margin-top:8px"><button class="btn sm" id="makeFace" type="button">Create a presenter</button></div>
+      <label class="check consent" hidden><input type="checkbox" id="consent"> This is me, or someone who agreed to be the presenter</label>
+      <p class="note">"Create a presenter" invents a face, so nobody's likeness is used. To use a real photo, it must be you or someone who agreed — front-facing, head and shoulders, mouth closed.</p>
       <label class="f" for="script">Script</label>
       <textarea id="script" placeholder="Hi, I'm here to show you this week's best finds.">${S.product ? esc(productScript(S.product.card)) : ''}</textarea>
       ${S.product ? '<button class="btn sm" id="rewrite" type="button">New wording</button>' : ''}
@@ -603,7 +643,7 @@ const panels = {
     const sizeOf = () => FORMATS[$('#format').value]?.size || null;
     let stopPreview = null;
     $('#prev').onclick = () => {
-      if (!S.face) return faceDrop.click();
+      if (!S.face) return $('#faceDrop').click();
       run('Preparing preview…', async () => {
         const pres = await prepare();
         $('#out').innerHTML = `<div class="hero"><canvas id="pc"></canvas><div class="acts"><span class="note">Preview with a practice mouth movement. Create the video to hear it speak.</span></div></div>`;
@@ -612,7 +652,8 @@ const panels = {
       });
     };
     $('#go').onclick = () => {
-      if (!S.face) return faceDrop.click();
+      if (!S.face) return $('#faceDrop').click();
+      if (!S.face.generated && !$('#consent').checked) return showError(new Error('Tick the consent box, or press "Create a presenter" instead of using a real person\'s photo.'));
       const script = $('#script').value.trim();
       if (!script && !$('#voFile').files[0]) return $('#script').focus();
       const voiceId = $('#voice').value, speed = +$('#speed').value, size = sizeOf();
