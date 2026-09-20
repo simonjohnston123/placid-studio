@@ -347,11 +347,12 @@ const panels = {
       <input type="text" id="hook" maxlength="70" value="${c ? esc(hookFor(c)) : ''}" placeholder="Stop scrolling for ten seconds">
       <label class="f" for="script">Script</label>
       <textarea id="script">${c ? esc(productScript(c)) : ''}</textarea>
-      <div class="row"><button class="btn sm" id="rewrite" type="button">New wording</button><button class="btn sm" id="newHook" type="button">New hook</button></div>
+      <div class="row"><button class="btn sm" id="rewrite" type="button">New wording</button><button class="btn sm" id="newHook" type="button">New hook</button><button class="btn sm" id="tryVoice" type="button">Hear this voice</button></div>
       <div class="row">
         <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
         <div><label class="f" for="music">Music</label><select id="music">
-          <option value="auto" selected>Studio bed (quiet)</option>
+          <option value="auto" selected>Studio bed</option>
+          <option value="quiet">Studio bed, quieter</option>
           <option value="none">No music</option>
           <option value="file">Upload a track…</option>
         </select></div>
@@ -376,6 +377,13 @@ const panels = {
     $('#link').onkeydown = e => e.key === 'Enter' && load();
     $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
     $('#newHook').onclick = () => { if (S.product) $('#hook').value = hookFor(S.product.card); };
+    // Auditioning beats guessing: the hook alone is a couple of seconds to speak.
+    $('#tryVoice').onclick = () => run('Speaking a sample…', async () => {
+      const line = $('#hook').value.trim() || 'Stop scrolling for ten seconds';
+      const v = await speak(line, $('#voice').value, 1);
+      const url = URL.createObjectURL(toWav(v.samples, v.rate));
+      $('#out').innerHTML = `<div class="hero"><div class="card"><audio src="${url}" controls autoplay></audio><div class="meta"><p>${esc(line)}</p><p>${esc($('#voice').selectedOptions[0].textContent)} — try the others and pick one.</p></div></div></div>`;
+    });
     $('#go').onclick = () => {
       if (!S.product) return $('#link').focus();
       const card = S.product.card;
@@ -389,9 +397,9 @@ const panels = {
         const voice = (await pickedRecording('voFile')) || await speak(spoken, voiceId, 1);
         const seconds = voice.samples.length / voice.rate + 2.6;
         let bed = null;
-        if (musicMode === 'auto') { job.text('Writing the music bed…'); bed = await musicBed(seconds, voice.rate); }
+        if (musicMode === 'auto' || musicMode === 'quiet') { job.text('Writing the music bed…'); bed = await musicBed(seconds, voice.rate); }
         else if (musicMode === 'file' && musicFile) bed = (await audioFromBlob(musicFile)).samples;
-        const track = mixVoiceAndMusic(voice, bed);
+        const track = mixVoiceAndMusic(voice, bed, musicMode === 'quiet' ? 0.22 : 0.45);
         const cues = captionCues(spoken, voice);
         const overlay = reelOverlay({ hook, cues, price: card.priceLabel, title: card.title, host: new URL(card.url).host, seconds });
         await renderVideo({ blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay });

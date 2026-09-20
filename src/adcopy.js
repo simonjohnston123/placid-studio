@@ -16,6 +16,25 @@ const pick = (list, seen = null) => {
   return out;
 };
 
+// Acronyms and model codes are read out letter by letter and mean nothing to a
+// shopper ("BLDC Motor", "P7"). Familiar ones stay; the rest are dropped from
+// anything spoken. The product's real name still appears on screen and in the post.
+const KNOWN = new Set(['LED', 'USB', 'HD', 'UHD', '4K', 'TV', 'UV', 'AC', 'DC', 'PVC', 'ABS', 'IP', 'XL', 'XXL', 'SUV', 'RV', 'PC', 'WIFI']);
+export function deJargon(text) {
+  return String(text || '')
+    .split(/\s+/)
+    // Model codes keep their digits ("P7", "X500"); letter-only acronyms go.
+    .filter(w => {
+      const bare = w.replace(/[^A-Za-z0-9]/g, '');
+      return !(/^[A-Z]{2,6}$/.test(bare) && !KNOWN.has(bare));
+    })
+    .join(' ')
+    .replace(/\s+([.,:;!?])/g, '$1')
+    .replace(/^[\s:;,.-]+/, '')
+    .replace(/(^|[.!?]\s+)([a-z])/g, (m, a, b) => a + b.toUpperCase())
+    .trim();
+}
+
 const FLUFF = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|premium quality|high quality|perfect for every|amazing|incredible)\b/i;
 const STOP = /^(specifications?|description|features?|package (contents|includes)|note|warranty|shipping|delivery)\b/i;
 
@@ -94,9 +113,9 @@ const money = cents => (cents % 100 ? `$${(cents / 100).toFixed(2)}` : `$${cents
 
 export function productScript(card) {
   const seen = new Set();
-  const name = shortName(card.title);
+  const name = deJargon(shortName(card.title));
   const list = facts(card);
-  const fact = deName(list[0], card.title);
+  const fact = deJargon(deName(list[0], card.title));
   // A second fact only if it says something new.
   const extra = list.slice(1).find(f => !overlaps(f, list[0] || '')) || null;
 
@@ -124,11 +143,12 @@ export function productScript(card) {
     `Why it's worth it: ${fact.replace(/^./, m => m.toLowerCase())}.`,
   ], seen) : null;
 
-  const second = extra ? `${deName(extra, card.title)}.` : null;
+  const second = extra ? `${deJargon(deName(extra, card.title))}.` : null;
 
   const price = card.priceCents ? pick([
-    `${money(card.priceCents)} plus delivery.`,
-    `All yours for ${money(card.priceCents)}.`,
+    // Wording matches the product page: delivery is calculated at checkout, never free.
+    `${money(card.priceCents)}, delivery worked out at checkout.`,
+    `All yours for ${money(card.priceCents)}, plus delivery to your place.`,
     `${money(card.priceCents)}.`,
   ], seen) : null;
 
@@ -159,7 +179,7 @@ export const productCaption = card => ({
 /** The first line: short, spoken and shown. No product claims — those come later. */
 export function hookFor(card) {
   const price = card.priceCents ? `$${card.priceCents % 100 ? (card.priceCents / 100).toFixed(2) : card.priceCents / 100}` : null;
-  const thing = shortName(card.title).split(/\s+/).slice(-2).join(' ');
+  const thing = deJargon(shortName(card.title)).split(/\s+/).slice(-2).join(' ');
   return pick([
     'Stop scrolling for ten seconds',
     `I found the ${thing}`,
@@ -169,3 +189,4 @@ export function hookFor(card) {
     'Two reasons this is worth it',
   ]);
 }
+

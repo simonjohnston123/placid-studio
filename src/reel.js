@@ -60,7 +60,9 @@ export async function musicBed(seconds, rate = 44100) {
 }
 
 /** Voice at full level, music ducked underneath it. */
-export function mixVoiceAndMusic(voice, music, musicGain = 0.16) {
+// A bed sits about 18-20 dB under the voice. The first version used 0.16 and
+// ducked to 0.45 of that, which measured -55 dB in the pauses: inaudible.
+export function mixVoiceAndMusic(voice, music, musicGain = 0.45) {
   const n = Math.max(voice.samples.length, music ? music.length : 0);
   const out = new Float32Array(n);
   out.set(voice.samples);
@@ -68,7 +70,7 @@ export function mixVoiceAndMusic(voice, music, musicGain = 0.16) {
     for (let i = 0; i < n; i++) {
       // Duck further wherever the voice is actually speaking.
       const v = Math.abs(voice.samples[i] || 0);
-      out[i] += (music[i % music.length] || 0) * musicGain * (v > 0.02 ? 0.45 : 1);
+      out[i] += (music[i % music.length] || 0) * musicGain * (v > 0.02 ? 0.5 : 1);
     }
   }
   let peak = 0;
