@@ -1,6 +1,7 @@
 import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
 import { MotionRenderer, FORMATS } from './motion.js';
-import { saveItem, listItems, deleteItem, toWav, saveLogo, loadLogo } from './store.js';
+import { saveItem, listItems, deleteItem, toWav, saveLogo, loadLogo, saveSettings, loadSettings } from './store.js';
+import { sendToQueue, postPayload } from './handover.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
 import { productScript, productCaption, hookFor } from './adcopy.js';
 import { lipSyncVideo } from './lipsync.js';
@@ -47,6 +48,7 @@ const S = {
   gpu: { ok: false, f16: false },
   libFilter: 'all',
   logo: null,   // brand logo blob, remembered in the library database
+  settings: {}, // optional posting-queue address and token
 };
 const depthCache = new WeakMap();
 
@@ -151,7 +153,7 @@ function heroCanvas() {
 const SHOT_MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
 // Every render starts the moves at a different point, so two ads never cut the same way.
 const shotMove = i => SHOT_MOVES[(i + Math.floor(Math.random() * SHOT_MOVES.length)) % SHOT_MOVES.length];
-async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null, onFrame = null }) {
+async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null, onFrame = null, send = null }) {
   const list = blobs?.length ? blobs : [blob];
   const shots = [];
   for (const [i, b] of list.entries()) {
@@ -164,14 +166,49 @@ async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain 
   const video = await r.record(shots, { intensity, grain, onFrame }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
   const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
   await saveItem({ kind: 'video', blob: video, prompt, motion, ext });
-  showVideo(video, ext);
+  showVideo(video, ext, send && { ...send, video, durationSeconds: seconds });
 }
 
-function showVideo(blob, ext) {
+function showVideo(blob, ext, send = null) {
   const url = URL.createObjectURL(blob);
   $('#out').innerHTML = `<div class="hero"><video src="${url}" controls autoplay loop playsinline></video>
     <div class="acts"><a class="btn" href="${url}" download="placid-studio-${Date.now()}.${ext}">Download ${ext.toUpperCase()}</a>
+    ${send ? '<button class="btn" id="sendQueue">Send to posting queue</button><button class="btn sm" id="sendSetup">Send settings</button>' : ''}
     <button class="btn" data-go="library">Open Library</button></div></div>`;
+  if (!send) return;
+  $('#sendSetup').onclick = queueSettings;
+  $('#sendQueue').onclick = () => {
+    if (!S.settings.queueEndpoint) return queueSettings();
+    run('Sending to the queue…', async () => {
+      const res = await sendToQueue({
+        endpoint: S.settings.queueEndpoint, token: S.settings.queueToken, video: blob,
+        payload: postPayload(send), onProgress: p => job.pct(p, `${Math.round(p * 100)}% uploaded`),
+      });
+      const link = res?.reviewUrl ? ` <a href="${esc(res.reviewUrl)}" target="_blank" rel="noopener">Open it</a>` : '';
+      $('#out').insertAdjacentHTML('afterbegin',
+        `<div class="job" style="background:var(--surface)"><div class="job-text">Sent. It waits for approval in the queue — nothing is public yet.${link}</div></div>`);
+    });
+  };
+}
+
+// The destination is the operator's own, typed on their own machine: nothing is
+// baked into the published site, and every feature works with none of it set.
+function queueSettings() {
+  const s = S.settings || {};
+  $('#out').insertAdjacentHTML('afterbegin', `<div class="job" style="background:var(--surface)">
+    <div class="job-text">Where finished reels are sent</div>
+    <label class="f" for="qEndpoint">Queue address</label>
+    <input type="text" id="qEndpoint" placeholder="https://placidcrm.com/api/social/inbox" value="${esc(s.queueEndpoint || '')}">
+    <label class="f" for="qToken">Token</label>
+    <input type="text" id="qToken" placeholder="paste the token from PlacidCRM" value="${esc(s.queueToken || '')}">
+    <div class="acts" style="margin-top:10px"><button class="btn sm" id="qSave">Save</button><button class="btn sm" id="qClear">Forget</button></div>
+    <p class="note">Stored in this browser only. Nothing leaves the studio until you press Send.</p></div>`);
+  $('#qSave').onclick = async () => {
+    S.settings = { ...S.settings, queueEndpoint: $('#qEndpoint').value.trim(), queueToken: $('#qToken').value.trim() };
+    await saveSettings(S.settings);
+    $('#qSave').textContent = 'Saved';
+  };
+  $('#qClear').onclick = async () => { S.settings = {}; await saveSettings({}); $('#qToken').value = ''; $('#qEndpoint').value = ''; };
 }
 
 function download(blob, name) {
@@ -425,8 +462,11 @@ const panels = {
           // Only what the shop's own checkout offers. Never worded as "Pay in 4".
           payments: $('#payments').checked ? 'Afterpay · Klarna · Zip · PayPal' : null,
         });
-        await renderVideo({ blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay });
         const text = postText(card, hook);
+        await renderVideo({
+          blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay,
+          send: { card, hook, script, caption: text, format: 'vertical' },
+        });
         $('#out').insertAdjacentHTML('beforeend',
           `<label class="f">Post text — copy this into TikTok</label><textarea id="postText" rows="7">${esc(text)}</textarea>
            <button class="btn sm" id="copyText" type="button">Copy</button>`);
@@ -845,6 +885,7 @@ $('#out').addEventListener('click', e => { const b = e.target.closest('[data-go]
   // ~1.7 GB of models live in the browser cache. Ask the browser not to evict
   // them under storage pressure, or every visit re-downloads them.
   try { await navigator.storage?.persist?.(); } catch {}
+  try { S.settings = await loadSettings(); } catch {}
   try { S.gpu = await gen({ op: 'gpu' }); } catch {}
   const d = $('#device');
   if (S.gpu.ok) { d.textContent = 'WebGPU ready · all features available'; d.classList.add('ok'); }

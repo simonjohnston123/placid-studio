@@ -20,13 +20,17 @@ async function tx(mode, fn) {
   });
 }
 
+const SETTINGS = 'settings';
+export const saveSettings = value => tx('readwrite', s => s.put({ id: SETTINGS, kind: 'settings', value, created: Date.now() }));
+export const loadSettings = async () => (await tx('readonly', s => s.get(SETTINGS)))?.value || {};
+
 const BRAND = 'brand-logo';
 export const saveLogo = blob => tx('readwrite', s => s.put({ id: BRAND, kind: 'brand', blob, created: Date.now() }));
 export const loadLogo = async () => (await tx('readonly', s => s.get(BRAND)))?.blob || null;
 
 export const saveItem = item => tx('readwrite', s => s.put({ id: crypto.randomUUID(), created: Date.now(), ...item }));
 export const deleteItem = id => tx('readwrite', s => s.delete(id));
-export const listItems = async () => (await tx('readonly', s => s.getAll())).filter(i => i.kind !== 'brand').sort((a, b) => b.created - a.created);
+export const listItems = async () => (await tx('readonly', s => s.getAll())).filter(i => i.kind !== 'brand' && i.kind !== 'settings').sort((a, b) => b.created - a.created);
 
 // 16-bit mono WAV so voiceovers can be downloaded and reused.
 export function toWav(samples, rate) {
