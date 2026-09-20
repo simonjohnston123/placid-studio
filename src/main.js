@@ -346,8 +346,8 @@ const panels = {
       <div id="productBox"></div>
       <label class="f" for="hook">Hook — the first thing they see and hear</label>
       <input type="text" id="hook" maxlength="70" value="${c ? esc(hookFor(c)) : ''}" placeholder="Stop scrolling for ten seconds">
-      <label class="f" for="script">Script</label>
-      <textarea id="script">${c ? esc(productScript(c)) : ''}</textarea>
+      <label class="f" for="script">Script — starts with the hook, then the fix</label>
+      <textarea id="script">${c ? esc(productScript(c, { hook: hookFor(c) })) : ''}</textarea>
       <div class="row"><button class="btn sm" id="rewrite" type="button">New wording</button><button class="btn sm" id="newHook" type="button">New hook</button><button class="btn sm" id="tryVoice" type="button">Hear this voice</button></div>
       <div class="row">
         <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
@@ -380,14 +380,21 @@ const panels = {
       run('Loading product…', async () => {
         S.product = await fetchProduct(link);
         paintProduct();
-        $('#script').value = productScript(S.product.card);
-        $('#hook').value = hookFor(S.product.card);
+        const h = hookFor(S.product.card);
+        $('#hook').value = h;
+        $('#script').value = productScript(S.product.card, { hook: h });
       });
     };
     $('#fetch').onclick = load;
     $('#link').onkeydown = e => e.key === 'Enter' && load();
-    $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
-    $('#newHook').onclick = () => { if (S.product) $('#hook').value = hookFor(S.product.card); };
+    // New wording keeps the hook; a new hook rewrites the script to match it.
+    $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card, { hook: $('#hook').value.trim() }); };
+    $('#newHook').onclick = () => {
+      if (!S.product) return;
+      const h = hookFor(S.product.card);
+      $('#hook').value = h;
+      $('#script').value = productScript(S.product.card, { hook: h });
+    };
     // Auditioning beats guessing: the hook alone is a couple of seconds to speak.
     $('#tryVoice').onclick = () => run('Speaking a sample…', async () => {
       const line = $('#hook').value.trim() || 'Stop scrolling for ten seconds';

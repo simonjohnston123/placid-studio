@@ -121,42 +121,65 @@ const shortName = title => {
 
 const money = cents => (cents % 100 ? `$${(cents / 100).toFixed(2)}` : `$${cents / 100}`);
 
-export function productScript(card) {
+/** What the product IS, in one or two words: "Stick Vacuum", "Shower Screen". */
+function productType(card) {
+  const words = deJargon(shortName(card.title)).split(/\s+/).filter(w => !/^\d/.test(w));
+  return words.slice(-2).join(' ') || 'one of these';
+}
+
+/**
+ * The best spec, cut to something sayable in a hook. A hook is read in about a
+ * second, so it stays short: brackets dropped, seven words at most.
+ */
+function promise(card) {
+  const best = facts(card)[0];
+  if (!best) return null;
+  const afterHeading = best.includes(':') ? best.split(':').slice(1).join(':') : best;
+  const clean = fixDegrees(deJargon(afterHeading)).replace(/\([^)]*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  const words = clean.split(/\s+/).slice(0, 7);
+  while (words.length > 3 && /^(and|with|for|the|a|to|of|in|on|that|which)$/i.test(words[words.length - 1])) words.pop();
+  return words.join(' ').replace(/[,;:]$/, '').replace(/^./, m => m.toLowerCase()) || null;
+}
+
+// Problem first, then the thing that solves it — the order every direct-response
+// ad uses. The problem is only ever a question, never a claim, and the solution
+// is always a fact from the product's own page.
+export function productScript(card, { hook = null } = {}) {
   const seen = new Set();
   const name = deJargon(shortName(card.title));
   const list = facts(card);
   const fact = fixDegrees(deJargon(deName(list[0], card.title)));
-  // A second fact only if it says something new.
   const extra = list.slice(1).find(f => !overlaps(f, list[0] || '')) || null;
 
-  const hook = pick([
-    'Stop scrolling for ten seconds.',
-    "Here's the one people keep asking about.",
-    'If you were going to buy one of these anyway, read this bit.',
-    'Two things worth knowing before you buy one of these.',
-    "Right — quick one.",
-    'This is the bit most people miss.',
+  const problem = hook || hookFor(card);
+  const turn = pick([
+    'Here it is.',
+    "Then this is for you.",
+    "Here's the fix.",
+    'Sorted.',
   ], seen);
 
   const intro = pick([
-    `${name}.`,
+    `The ${name}.`,
     `It's the ${name}.`,
     `Meet the ${name}.`,
   ], seen);
 
-  // A fact that already carries a colon, or opens with an acronym, is left exactly
-  // as it is: "Why it's worth it: bLDC Motor:" is how copy starts sounding broken.
-  const plainFact = !fact || fact.includes(':') || /^[A-Z]{2,}/.test(fact);
-  const proof = fact ? pick(plainFact ? [`${fact}.`] : [
-    `${fact}.`,
-    `${fact} — that's the whole point.`,
-    `Why it's worth it: ${fact.replace(/^./, m => m.toLowerCase())}.`,
+  // If the hook already used the first fact, lead with the second one instead —
+  // hearing the same spec twice in five seconds is what made the old copy grate.
+  const usedByHook = fact && problem && overlaps(fact, problem);
+  const lead = usedByHook && extra ? fixDegrees(deJargon(deName(extra, card.title))) : fact;
+  const other = usedByHook && extra ? fact : extra && fixDegrees(deJargon(deName(extra, card.title)));
+
+  const plainFact = !lead || lead.includes(':') || /^[A-Z]{2,}/.test(lead);
+  const proof = lead ? pick(plainFact ? [`${lead}.`] : [
+    `${lead}.`,
+    `${lead} — that's the whole point.`,
   ], seen) : null;
 
-  const second = extra ? `${fixDegrees(deJargon(deName(extra, card.title)))}.` : null;
+  const second = other ? `${other}.` : null;
 
   const price = card.priceCents ? pick([
-    // Wording matches the product page: delivery is calculated at checkout, never free.
     `${money(card.priceCents)}, delivery worked out at checkout.`,
     `All yours for ${money(card.priceCents)}, plus delivery to your place.`,
     `${money(card.priceCents)}.`,
@@ -164,20 +187,16 @@ export function productScript(card) {
 
   // TRUE scarcity only: the shop's own count, and only when it is genuinely low.
   const stock = typeof card.stockQuantity === 'number' && card.stockQuantity > 0 && card.stockQuantity <= 5
-    ? pick([
-        `Only ${card.stockQuantity} left.`,
-        `There are ${card.stockQuantity} in stock.`,
-      ], seen)
+    ? pick([`Only ${card.stockQuantity} left.`, `There are ${card.stockQuantity} in stock.`], seen)
     : null;
 
   const close = pick([
     'Placid Deals dot com.',
     'Get it at Placid Deals dot com.',
     "It's at Placid Deals dot com — go and have a look.",
-    'Placid Deals dot com. Go on.',
   ], seen);
 
-  return [hook, intro, proof, second, price, stock, close].filter(Boolean).join(' ');
+  return [problem, turn, intro, proof, second, price, stock, close].filter(Boolean).join(' ');
 }
 
 /** The on-screen caption: name and price, nothing that needs reading twice. */
@@ -187,16 +206,19 @@ export const productCaption = card => ({
 });
 
 /** The first line: short, spoken and shown. No product claims — those come later. */
+// The hook is a QUESTION about the problem, so a viewer recognises themselves in
+// the first second. A question asserts nothing, so nothing here can mislead; the
+// answer that follows is the product's own fact.
 export function hookFor(card) {
-  const price = card.priceCents ? `$${card.priceCents % 100 ? (card.priceCents / 100).toFixed(2) : card.priceCents / 100}` : null;
-  const thing = deJargon(shortName(card.title)).split(/\s+/).slice(-2).join(' ');
-  return pick([
-    'Stop scrolling for ten seconds',
-    `I found the ${thing}`,
-    'This one sells itself',
-    price ? `${price}. Here's what you get` : 'Here is what you get',
-    'Watch this before you buy one',
-    'Two reasons this is worth it',
-  ]);
+  const type = productType(card).toLowerCase();
+  const p = promise(card);
+  const options = [
+    `Still putting up with your old ${type}?`,
+    `Shopping for a ${type}?`,
+    `Is your ${type} past it?`,
+    `Want a ${type} that actually works?`,
+  ];
+  if (p) options.unshift(`Want a ${type} that ${p}?`, `Tired of a ${type} that can't ${p}?`);
+  return pick(options);
 }
 
