@@ -142,6 +142,7 @@ async function audioFromBlob(blob) {
 }
 
 let renderer = null;
+function rendererFor(canvas) { renderer = new MotionRenderer(canvas); return renderer; }
 function heroCanvas() {
   const out = $('#out');
   out.innerHTML = `<div class="hero"><canvas id="cv"></canvas><div class="acts" id="heroActs"></div></div>`;
@@ -153,20 +154,21 @@ function heroCanvas() {
 const SHOT_MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
 // Every render starts the moves at a different point, so two ads never cut the same way.
 const shotMove = i => SHOT_MOVES[(i + Math.floor(Math.random() * SHOT_MOVES.length)) % SHOT_MOVES.length];
-async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null, onFrame = null, send = null }) {
+async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null, onFrame = null, send = null, canvas = null, quiet = false }) {
   const list = blobs?.length ? blobs : [blob];
   const shots = [];
   for (const [i, b] of list.entries()) {
     job.text(list.length > 1 ? `Reading depth of photo ${i + 1} of ${list.length}…` : 'Reading scene depth…');
     shots.push({ image: await createImageBitmap(b), depth: await depthFor(b), motion: i === 0 ? motion : shotMove(i) });
   }
-  const r = heroCanvas();
+  const r = canvas ? rendererFor(canvas) : heroCanvas();
   r.setFrame(format, caption);
   job.text('Recording video…');
   const video = await r.record(shots, { intensity, grain, onFrame }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
   const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
   await saveItem({ kind: 'video', blob: video, prompt, motion, ext });
-  showVideo(video, ext, send && { ...send, video, durationSeconds: seconds });
+  if (!quiet) showVideo(video, ext, send && { ...send, video, durationSeconds: seconds });
+  return { video, ext };
 }
 
 function showVideo(blob, ext, send = null) {
@@ -371,6 +373,32 @@ async function presenterVideo({ faceBlob, voice, format, caption, backdropBlobs,
   showVideo(video, ext);
 }
 
+/**
+ * Voiceover, music, captions, overlay and render for one product — the whole
+ * reel in one place, so the Reel tab and Batch can never drift apart.
+ */
+async function buildReel({ card, photos, hook, script, voiceId, musicMode, musicFile, payments, ownRecordingId, canvas, quiet }) {
+  // The hook is spoken as well as shown, so the first second works with sound or without.
+  const spoken = script.startsWith(hook) ? script : `${hook}. ${script}`;
+  const voice = (ownRecordingId ? await pickedRecording(ownRecordingId) : null) || await speak(spoken, voiceId, 1);
+  const seconds = voice.samples.length / voice.rate + 2.6;
+  let bed = null;
+  if (musicMode === 'auto' || musicMode === 'quiet') { job.text('Writing the music bed…'); bed = await musicBed(seconds, voice.rate); }
+  else if (musicMode === 'file' && musicFile) bed = (await audioFromBlob(musicFile)).samples;
+  const track = mixVoiceAndMusic(voice, bed, musicMode === 'quiet' ? 0.22 : 0.45);
+  const logo = S.logo ? await createImageBitmap(S.logo) : null;
+  const overlay = reelOverlay({
+    hook, cues: captionCues(spoken, voice), price: card.priceLabel, title: card.title,
+    host: new URL(card.url).host, seconds, logo, payments,
+  });
+  const text = postText(card, hook);
+  const out = await renderVideo({
+    blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay,
+    send: { card, hook, script, caption: text, format: 'vertical' }, canvas, quiet,
+  });
+  return { ...out, text, seconds };
+}
+
 // ---------- panels ----------
 const panels = {
   reel() {
@@ -447,30 +475,87 @@ const panels = {
       const script = $('#script').value.trim(), hook = $('#hook').value.trim() || 'Have a look at this';
       const voiceId = $('#voice').value, musicMode = $('#music').value, musicFile = $('#musicFile').files[0];
       run('Starting…', async () => {
-        // The hook is spoken as well as shown, so the first second works with sound or without.
-        const spoken = script.startsWith(hook) ? script : `${hook}. ${script}`;
-        const voice = (await pickedRecording('voFile')) || await speak(spoken, voiceId, 1);
-        const seconds = voice.samples.length / voice.rate + 2.6;
-        let bed = null;
-        if (musicMode === 'auto' || musicMode === 'quiet') { job.text('Writing the music bed…'); bed = await musicBed(seconds, voice.rate); }
-        else if (musicMode === 'file' && musicFile) bed = (await audioFromBlob(musicFile)).samples;
-        const track = mixVoiceAndMusic(voice, bed, musicMode === 'quiet' ? 0.22 : 0.45);
-        const cues = captionCues(spoken, voice);
-        const logo = S.logo ? await createImageBitmap(S.logo) : null;
-        const overlay = reelOverlay({
-          hook, cues, price: card.priceLabel, title: card.title, host: new URL(card.url).host, seconds, logo,
-          // Only what the shop's own checkout offers. Never worded as "Pay in 4".
+        const { text } = await buildReel({
+          card, photos, hook, script, voiceId, musicMode, musicFile, ownRecordingId: 'voFile',
           payments: $('#payments').checked ? 'Afterpay · Klarna · Zip · PayPal' : null,
-        });
-        const text = postText(card, hook);
-        await renderVideo({
-          blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay,
-          send: { card, hook, script, caption: text, format: 'vertical' },
         });
         $('#out').insertAdjacentHTML('beforeend',
           `<label class="f">Post text — copy this into TikTok</label><textarea id="postText" rows="7">${esc(text)}</textarea>
            <button class="btn sm" id="copyText" type="button">Copy</button>`);
         $('#copyText').onclick = async () => { await navigator.clipboard.writeText(text); $('#copyText').textContent = 'Copied'; };
+      });
+    };
+  },
+
+  batch() {
+    $('#panel').innerHTML = `
+      <h1>Batch</h1>
+      <p class="lede">Paste a week of product links. Come back to a week of reels.</p>
+      <label class="f" for="links">Product links, one per line</label>
+      <textarea id="links" rows="8" placeholder="https://placiddeals.com/p/…&#10;https://placiddeals.com/p/…"></textarea>
+      <div class="row">
+        <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
+        <div><label class="f" for="music">Music</label><select id="music">
+          <option value="auto" selected>Studio bed</option>
+          <option value="quiet">Studio bed, quieter</option>
+          <option value="none">No music</option>
+        </select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="payments" checked> Show the payment options on the end card</label>
+      ${S.settings?.queueEndpoint ? '<label class="check"><input type="checkbox" id="toQueue"> Send each one to the posting queue as it finishes</label>' : '<p class="note">No posting queue set up, so reels are saved to the Library for downloading.</p>'}
+      <button class="btn primary" id="go">Make them all</button>
+      <p class="note">One at a time, about a minute each — the voice and the recording both run in real time. Keep this tab open; you can watch each one build.</p>`;
+    $('#go').onclick = () => {
+      const links = $('#links').value.split(/\s+/).map(l => l.trim()).filter(Boolean);
+      if (!links.length) return $('#links').focus();
+      const voiceId = $('#voice').value, musicMode = $('#music').value;
+      const payments = $('#payments').checked ? 'Afterpay · Klarna · Zip · PayPal' : null;
+      const toQueue = $('#toQueue')?.checked;
+      run(`Making ${links.length} reels…`, async () => {
+        $('#out').innerHTML = `<div class="hero"><canvas id="bc"></canvas></div><div class="grid" id="batchList"></div>`;
+        const canvas = $('#bc');
+        const done = [];
+        for (const [i, link] of links.entries()) {
+          const row = document.createElement('div');
+          row.className = 'card';
+          row.innerHTML = `<div class="meta"><p>${esc(link.replace(/^https?:\/\//, ''))}</p><div>Making ${i + 1} of ${links.length}…</div></div>`;
+          $('#batchList').prepend(row);
+          try {
+            job.text(`Product ${i + 1} of ${links.length}`);
+            const product = await fetchProduct(link);
+            const card = product.card;
+            const photos = product.photos.filter((_, k) => product.use[k]);
+            if (!photos.length) throw new Error('No usable photos.');
+            const hook = hookFor(card);
+            const script = productScript(card, { hook });
+            const { video, ext, text, seconds } = await buildReel({
+              card, photos, hook, script, voiceId, musicMode, payments, canvas, quiet: true,
+            });
+            const url = URL.createObjectURL(video);
+            let queued = '';
+            if (toQueue) {
+              try {
+                await sendToQueue({
+                  endpoint: S.settings.queueEndpoint, token: S.settings.queueToken, video,
+                  payload: postPayload({ card, hook, script, caption: text, video, durationSeconds: seconds, format: 'vertical' }),
+                });
+                queued = ' · sent to the queue';
+              } catch (e) { queued = ` · not sent: ${esc(e.message)}`; }
+            }
+            row.innerHTML = `<video src="${url}" controls loop playsinline preload="metadata"></video>
+              <div class="meta"><p>${esc(card.title)}</p><div>${esc(card.priceLabel || '')} · ${Math.round(seconds)}s${queued}</div>
+              <div class="acts"><a class="btn sm" href="${url}" download="placid-reel-${i + 1}.${ext}">Download</a>
+              <button class="btn sm" data-copy="${i}">Copy post text</button></div></div>`;
+            row.querySelector('[data-copy]').onclick = async e => { await navigator.clipboard.writeText(text); e.target.textContent = 'Copied'; };
+            done.push(link);
+          } catch (e) {
+            // One bad link must never stop the run.
+            row.innerHTML = `<div class="meta"><p>${esc(link.replace(/^https?:\/\//, ''))}</p><div style="color:var(--danger)">${esc(e.message)}</div></div>`;
+          }
+        }
+        job.text(`Finished: ${done.length} of ${links.length} made`);
+        $('#out').insertAdjacentHTML('afterbegin',
+          `<div class="job" style="background:var(--surface)"><div class="job-text">${done.length} of ${links.length} reels made. They are all in the Library.</div></div>`);
       });
     };
   },
