@@ -2,8 +2,9 @@ import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
 import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav } from './store.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
-import { productScript, productCaption } from './adcopy.js';
+import { productScript, productCaption, hookFor } from './adcopy.js';
 import { lipSyncVideo } from './lipsync.js';
+import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay, postText } from './reel.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -149,7 +150,7 @@ function heroCanvas() {
 const SHOT_MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
 // Every render starts the moves at a different point, so two ads never cut the same way.
 const shotMove = i => SHOT_MOVES[(i + Math.floor(Math.random() * SHOT_MOVES.length)) % SHOT_MOVES.length];
-async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null }) {
+async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain = 0.03, voice, prompt, format = 'source', caption = null, onFrame = null }) {
   const list = blobs?.length ? blobs : [blob];
   const shots = [];
   for (const [i, b] of list.entries()) {
@@ -159,7 +160,7 @@ async function renderVideo({ blob, blobs, motion, seconds, intensity = 1, grain 
   const r = heroCanvas();
   r.setFrame(format, caption);
   job.text('Recording video…');
-  const video = await r.record(shots, { intensity, grain }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
+  const video = await r.record(shots, { intensity, grain, onFrame }, seconds, voice, t => job.pct(t, `${Math.round(t * 100)}% · keep this tab open while it records`));
   const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
   await saveItem({ kind: 'video', blob: video, prompt, motion, ext });
   showVideo(video, ext);
@@ -334,6 +335,75 @@ async function presenterVideo({ faceBlob, voice, format, caption, backdropBlobs,
 
 // ---------- panels ----------
 const panels = {
+  reel() {
+    const c = S.product?.card;
+    $('#panel').innerHTML = `
+      <h1>Reel</h1>
+      <p class="lede">One product link in, one finished TikTok video out — hook, captions, music, price and your link.</p>
+      <label class="f" for="link">Product link</label>
+      <div class="row"><input type="text" id="link" placeholder="https://placiddeals.com/p/…" value="${c ? esc(c.url) : ''}"><button class="btn" id="fetch" style="flex:0 0 auto">Load</button></div>
+      <div id="productBox"></div>
+      <label class="f" for="hook">Hook — the first thing they see and hear</label>
+      <input type="text" id="hook" maxlength="70" value="${c ? esc(hookFor(c)) : ''}" placeholder="Stop scrolling for ten seconds">
+      <label class="f" for="script">Script</label>
+      <textarea id="script">${c ? esc(productScript(c)) : ''}</textarea>
+      <div class="row"><button class="btn sm" id="rewrite" type="button">New wording</button><button class="btn sm" id="newHook" type="button">New hook</button></div>
+      <div class="row">
+        <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
+        <div><label class="f" for="music">Music</label><select id="music">
+          <option value="auto" selected>Studio bed (quiet)</option>
+          <option value="none">No music</option>
+          <option value="file">Upload a track…</option>
+        </select></div>
+      </div>
+      <input type="file" id="musicFile" accept="audio/*" class="filein" hidden>
+      ${recordingField('voFile', 'Or use your own voice recording')}
+      <button class="btn primary" id="go">Make the reel</button>
+      <p class="note">9:16, captions burned in for muted viewing, hook in the first second, end card with your link. Aim for 21–34 seconds.</p>`;
+    paintProduct();
+    $('#music').onchange = e => { $('#musicFile').hidden = e.target.value !== 'file'; if (e.target.value === 'file') $('#musicFile').click(); };
+    const load = () => {
+      const link = $('#link').value.trim();
+      if (!link) return $('#link').focus();
+      run('Loading product…', async () => {
+        S.product = await fetchProduct(link);
+        paintProduct();
+        $('#script').value = productScript(S.product.card);
+        $('#hook').value = hookFor(S.product.card);
+      });
+    };
+    $('#fetch').onclick = load;
+    $('#link').onkeydown = e => e.key === 'Enter' && load();
+    $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
+    $('#newHook').onclick = () => { if (S.product) $('#hook').value = hookFor(S.product.card); };
+    $('#go').onclick = () => {
+      if (!S.product) return $('#link').focus();
+      const card = S.product.card;
+      const photos = S.product.photos.filter((_, i) => S.product.use[i]);
+      if (!photos.length) return showError(new Error('Tick at least one product photo.'));
+      const script = $('#script').value.trim(), hook = $('#hook').value.trim() || 'Have a look at this';
+      const voiceId = $('#voice').value, musicMode = $('#music').value, musicFile = $('#musicFile').files[0];
+      run('Starting…', async () => {
+        // The hook is spoken as well as shown, so the first second works with sound or without.
+        const spoken = script.startsWith(hook) ? script : `${hook}. ${script}`;
+        const voice = (await pickedRecording('voFile')) || await speak(spoken, voiceId, 1);
+        const seconds = voice.samples.length / voice.rate + 2.6;
+        let bed = null;
+        if (musicMode === 'auto') { job.text('Writing the music bed…'); bed = await musicBed(seconds, voice.rate); }
+        else if (musicMode === 'file' && musicFile) bed = (await audioFromBlob(musicFile)).samples;
+        const track = mixVoiceAndMusic(voice, bed);
+        const cues = captionCues(spoken, voice);
+        const overlay = reelOverlay({ hook, cues, price: card.priceLabel, title: card.title, host: new URL(card.url).host, seconds });
+        await renderVideo({ blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay });
+        const text = postText(card, hook);
+        $('#out').insertAdjacentHTML('beforeend',
+          `<label class="f">Post text — copy this into TikTok</label><textarea id="postText" rows="7">${esc(text)}</textarea>
+           <button class="btn sm" id="copyText" type="button">Copy</button>`);
+        $('#copyText').onclick = async () => { await navigator.clipboard.writeText(text); $('#copyText').textContent = 'Copied'; };
+      });
+    };
+  },
+
   presets() {
     $('#panel').innerHTML = `
       <h1>Presets</h1>
@@ -749,4 +819,4 @@ $('#out').addEventListener('click', e => { const b = e.target.closest('[data-go]
   if (S.gpu.ok) { d.textContent = 'WebGPU ready · all features available'; d.classList.add('ok'); }
   else d.textContent = 'No WebGPU: image generation off · video, voice and upload work';
 })();
-setMode('presets');
+setMode('reel');

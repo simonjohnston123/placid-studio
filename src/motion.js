@@ -163,6 +163,7 @@ export class MotionRenderer {
    * shots: [{ image: ImageBitmap, depth, motion }]; seconds: total length.
    * audio: optional { samples: Float32Array, rate } — the video stretches to fit it.
    */
+  /** opts.onFrame(ctx, t, i) draws over every frame — captions, hook, end card. */
   async record(shots, opts, seconds, audio, onTick) {
     this.stop();
     const stream = this.out.captureStream(30);
@@ -201,6 +202,7 @@ export class MotionRenderer {
         const local = Math.min(1, (elapsed - i * per) / per);
         const fade = shots.length > 1 ? Math.min(1, (elapsed - i * per) / 0.3) : 1;
         this.draw(shots[i].motion, local, { ...opts, alpha: fade });
+        opts.onFrame?.(this.ctx, elapsed, i);
         onTick?.(t);
         if (t < 1) this.timer = setTimeout(loop, 1000 / 30); else resolve();
       };

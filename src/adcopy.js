@@ -155,3 +155,17 @@ export const productCaption = card => ({
   title: shortName(card.title),
   line: [card.priceLabel, new URL(card.url).host].filter(Boolean).join(' · '),
 });
+
+/** The first line: short, spoken and shown. No product claims — those come later. */
+export function hookFor(card) {
+  const price = card.priceCents ? `$${card.priceCents % 100 ? (card.priceCents / 100).toFixed(2) : card.priceCents / 100}` : null;
+  const thing = shortName(card.title).split(/\s+/).slice(-2).join(' ');
+  return pick([
+    'Stop scrolling for ten seconds',
+    `I found the ${thing}`,
+    'This one sells itself',
+    price ? `${price}. Here's what you get` : 'Here is what you get',
+    'Watch this before you buy one',
+    'Two reasons this is worth it',
+  ]);
+}
