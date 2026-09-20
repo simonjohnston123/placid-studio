@@ -3,6 +3,7 @@ import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav } from './store.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
 import { productScript, productCaption } from './adcopy.js';
+import { lipSyncVideo } from './lipsync.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -253,12 +254,25 @@ function avatarPrompt() {
     + 'plain light grey background, soft even lighting, sharp focus, 85mm portrait lens';
 }
 
+// A generated portrait is only useful if the face tracker can actually find the
+// face in it. At 384px it often cannot, so each attempt is upscaled before it is
+// given up on, and a few attempts are made before reporting failure.
 async function makeAvatar() {
-  const [blob] = await generateImages(avatarPrompt(), 1);
-  job.text('Checking the face…');
-  const points = await detectFace(await createImageBitmap(blob));
-  await saveItem({ kind: 'image', blob, prompt: 'Generated presenter' });
-  S.face = { blob, url: URL.createObjectURL(blob), points, generated: true };
+  let last = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    job.text(`Drawing a presenter (${attempt} of 3)…`);
+    const [small] = await generateImages(avatarPrompt(), 1);
+    for (const blob of [small, await gen({ op: 'upscale', blob: small }, onEvent)]) {
+      try {
+        job.text('Checking the face…');
+        const points = await detectFace(await createImageBitmap(blob));
+        await saveItem({ kind: 'image', blob, prompt: 'Generated presenter' });
+        S.face = { blob, url: URL.createObjectURL(blob), points, generated: true };
+        return;
+      } catch (e) { last = e; }
+    }
+  }
+  throw new Error(`The studio could not draw a usable face (${last?.message || 'no face found'}). Try again, or upload a photo of yourself.`);
 }
 
 function faceZone(el) {
@@ -370,7 +384,6 @@ const panels = {
     $('#vo').onchange = e => ($('#voBox').hidden = !e.target.checked);
     $('#usePresenter').onchange = e => ($('#presenterBox').hidden = !e.target.checked);
     faceZone($('#faceDrop'));
-    $('#makeFace').onclick = () => run('Creating a presenter…', async () => { await makeAvatar(); $('#faceDrop').repaint(); });
     $('#makeFace').onclick = () => run('Creating a presenter…', async () => { await makeAvatar(); $('#faceDrop').repaint(); });
     $('#rewrite').onclick = () => { if (S.product) $('#script').value = productScript(S.product.card); };
     const load = () => {
@@ -571,6 +584,7 @@ const panels = {
       <div class="row" style="margin-top:18px"><button class="btn" id="prev">Preview face</button></div>
       <button class="btn primary" id="go">Create presenter video</button>`;
     faceZone($('#faceDrop'));
+    $('#makeFace').onclick = () => run('Creating a presenter…', async () => { await makeAvatar(); $('#faceDrop').repaint(); });
     if ($('#rewrite')) $('#rewrite').onclick = () => ($('#script').value = productScript(S.product.card));
     const prepare = async () => {
       const bmp = await createImageBitmap(S.face.blob);
@@ -605,6 +619,49 @@ const panels = {
         stopPreview?.(); stopPreview = null;
         const voice = (await pickedRecording('voFile')) || await speak(script, voiceId, speed);
         await presenterVideo({ faceBlob: S.face.blob, voice, format: $('#format').value, caption, backdropBlobs: productPhotos, aiTag });
+      });
+    };
+  },
+
+  lipsync() {
+    $('#panel').innerHTML = `
+      <h1>Lip sync</h1>
+      <p class="lede">Film yourself once. Every ad after that reuses the clip with new words.</p>
+      <label class="f">Your clip</label>
+      <input type="file" id="clip" accept="video/*" class="filein">
+      <p class="note">Ten to twenty seconds, facing the camera, good light, mouth mostly closed. Say anything — the words are replaced.</p>
+      <label class="f" for="script">What they should say</label>
+      <textarea id="script" placeholder="Stop scrolling for ten seconds…">${S.product ? esc(productScript(S.product.card)) : ''}</textarea>
+      ${S.product ? '<button class="btn sm" id="rewrite" type="button">New wording</button>' : ''}
+      <div class="row">
+        <div><label class="f" for="voice">Voice</label><select id="voice">${voiceOptions()}</select></div>
+        <div><label class="f" for="speed">Speed</label><select id="speed"><option value="0.9">Slow</option><option value="1" selected>Normal</option><option value="1.1">Fast</option></select></div>
+      </div>
+      ${recordingField('voFile', 'Or use your own recording instead')}
+      ${S.product ? `<label class="check"><input type="checkbox" id="useProduct" checked> Caption: ${esc(S.product.card.title.slice(0, 40))}</label>` : ''}
+      <label class="check"><input type="checkbox" id="consentClip"> This is me, or someone who agreed to be filmed for this</label>
+      <button class="btn primary" id="go">Lip sync the clip</button>
+      <p class="note">Tracking runs on the processor: roughly a minute of work per twenty seconds of script.</p>`;
+    if ($('#rewrite')) $('#rewrite').onclick = () => ($('#script').value = productScript(S.product.card));
+    $('#go').onclick = () => {
+      const file = $('#clip').files[0];
+      if (!file) return $('#clip').click();
+      if (!$('#consentClip').checked) return showError(new Error('Tick the consent box: only film yourself, or someone who agreed to it.'));
+      const script = $('#script').value.trim();
+      if (!script && !$('#voFile').files[0]) return $('#script').focus();
+      const voiceId = $('#voice').value, speed = +$('#speed').value;
+      const c = $('#useProduct')?.checked ? S.product.card : null;
+      run('Starting…', async () => {
+        const voice = (await pickedRecording('voFile')) || await speak(script, voiceId, speed);
+        $('#out').innerHTML = `<div class="hero"><canvas id="lc"></canvas></div>`;
+        job.text('Tracking the face…');
+        const video = await lipSyncVideo({
+          file, audio: voice, outCanvas: $('#lc'), caption: c ? productCaption(c) : null,
+          onTick: (p, sub) => job.pct(p, sub),
+        });
+        const ext = video.type.includes('mp4') ? 'mp4' : 'webm';
+        await saveItem({ kind: 'video', blob: video, prompt: 'Lip sync: ' + (script || voice.text), ext });
+        showVideo(video, ext);
       });
     };
   },
