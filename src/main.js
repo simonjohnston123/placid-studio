@@ -1,6 +1,6 @@
 import { STYLE_PRESETS, MOTIONS, VOICES } from './presets.js';
 import { MotionRenderer, FORMATS } from './motion.js';
-import { saveItem, listItems, deleteItem, toWav } from './store.js';
+import { saveItem, listItems, deleteItem, toWav, saveLogo, loadLogo } from './store.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
 import { productScript, productCaption, hookFor } from './adcopy.js';
 import { lipSyncVideo } from './lipsync.js';
@@ -46,6 +46,7 @@ const S = {
   busy: false,
   gpu: { ok: false, f16: false },
   libFilter: 'all',
+  logo: null,   // brand logo blob, remembered in the library database
 };
 const depthCache = new WeakMap();
 
@@ -358,10 +359,20 @@ const panels = {
         </select></div>
       </div>
       <input type="file" id="musicFile" accept="audio/*" class="filein" hidden>
+      <label class="f">Your logo — loaded once, used on every reel</label>
+      <div class="row"><input type="file" id="logoFile" accept="image/*" class="filein"><span id="logoState" class="note" style="flex:0 0 auto"></span></div>
+      <label class="check"><input type="checkbox" id="payments" checked> Show Afterpay, Klarna, Zip and PayPal on the end card</label>
       ${recordingField('voFile', 'Or use your own voice recording')}
       <button class="btn primary" id="go">Make the reel</button>
       <p class="note">9:16, captions burned in for muted viewing, hook in the first second, end card with your link. Aim for 21–34 seconds.</p>`;
     paintProduct();
+    // The logo is remembered between sessions, so it is chosen once and forgotten about.
+    loadLogo().then(b => { if (b) { S.logo = b; $('#logoState').textContent = 'Logo saved'; } else $('#logoState').textContent = 'No logo yet'; });
+    $('#logoFile').onchange = () => {
+      const f = $('#logoFile').files[0];
+      if (!f) return;
+      run('Saving the logo…', async () => { await saveLogo(f); S.logo = f; $('#logoState').textContent = 'Logo saved'; });
+    };
     $('#music').onchange = e => { $('#musicFile').hidden = e.target.value !== 'file'; if (e.target.value === 'file') $('#musicFile').click(); };
     const load = () => {
       const link = $('#link').value.trim();
@@ -401,7 +412,12 @@ const panels = {
         else if (musicMode === 'file' && musicFile) bed = (await audioFromBlob(musicFile)).samples;
         const track = mixVoiceAndMusic(voice, bed, musicMode === 'quiet' ? 0.22 : 0.45);
         const cues = captionCues(spoken, voice);
-        const overlay = reelOverlay({ hook, cues, price: card.priceLabel, title: card.title, host: new URL(card.url).host, seconds });
+        const logo = S.logo ? await createImageBitmap(S.logo) : null;
+        const overlay = reelOverlay({
+          hook, cues, price: card.priceLabel, title: card.title, host: new URL(card.url).host, seconds, logo,
+          // Only what the shop's own checkout offers. Never worded as "Pay in 4".
+          payments: $('#payments').checked ? 'Afterpay · Klarna · Zip · PayPal' : null,
+        });
         await renderVideo({ blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay });
         const text = postText(card, hook);
         $('#out').insertAdjacentHTML('beforeend',

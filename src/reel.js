@@ -207,6 +207,29 @@ function drawCaption(c, W, H, text) {
   c.restore();
 }
 
+function drawLogo(c, W, H, logo) {
+  if (!logo) return;
+  const w = Math.min(W * 0.30, W * 0.30), h = w * (logo.height / logo.width);
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = W * 0.02;
+  c.drawImage(logo, W * 0.05, H * 0.045, w, h);
+  c.restore();
+}
+
+/** The shop address, on screen the whole way through. */
+function drawSiteTag(c, W, H, host) {
+  c.save();
+  const fs = Math.round(W * 0.042);
+  c.font = `700 ${fs}px ${FONT}`;
+  const w = c.measureText(host).width + fs * 1.1, h = fs * 1.5;
+  const x = W * 0.05, y = H * 0.885;
+  c.fillStyle = 'rgba(0,0,0,.45)';
+  roundRect(c, x, y, w, h, h / 2); c.fill();
+  c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(host, x + w / 2, y + h / 2 + 1);
+  c.restore();
+}
+
 function drawPrice(c, W, H, price) {
   if (!price) return;
   c.save();
@@ -221,7 +244,7 @@ function drawPrice(c, W, H, price) {
   c.restore();
 }
 
-function drawEndCard(c, W, H, { title, host, price }, alpha) {
+function drawEndCard(c, W, H, { title, host, price, logo, payments }, alpha) {
   if (alpha <= 0) return;
   c.save();
   c.globalAlpha = alpha;
@@ -244,23 +267,37 @@ function drawEndCard(c, W, H, { title, host, price }, alpha) {
   c.font = `700 ${Math.round(W * 0.058)}px ${FONT}`;
   c.fillStyle = '#fff';
   c.fillText(host, W / 2, y);
+  y += W * 0.085;
   c.font = `600 ${Math.round(W * 0.042)}px ${FONT}`;
   c.fillStyle = '#9aa1ad';
-  c.fillText('Link in bio', W / 2, y + W * 0.085);
+  c.fillText('Link in bio', W / 2, y);
+  // Only the methods the shop actually offers, and never worded as "Pay in 4".
+  if (payments) {
+    y += W * 0.075;
+    c.font = `600 ${Math.round(W * 0.038)}px ${FONT}`;
+    c.fillStyle = '#5eead4';
+    c.fillText(payments, W / 2, y);
+  }
+  if (logo) {
+    const w = W * 0.34, h = w * (logo.height / logo.width);
+    c.drawImage(logo, (W - w) / 2, H * 0.12, w, h);
+  }
   c.restore();
 }
 
 /** Everything a reel draws over the footage, as one per-frame function. */
-export function reelOverlay({ hook, cues, price, title, host, seconds }) {
+export function reelOverlay({ hook, cues, price, title, host, seconds, logo = null, payments = null }) {
   const endFrom = Math.max(seconds - 2.2, seconds * 0.82);
   return (c, t) => {
     const W = c.canvas.width, H = c.canvas.height;
     drawPrice(c, W, H, price);
+    drawLogo(c, W, H, logo);
+    if (t < endFrom) drawSiteTag(c, W, H, host);
     // Hook: full strength for the first 2 seconds, then out by 2.6s.
     drawHook(c, W, H, hook, t < 2 ? Math.min(1, t / 0.25) : Math.max(0, 1 - (t - 2) / 0.6));
     const cue = cues.find(q => t >= q.t0 && t < q.t1);
     if (t > 2.4) drawCaption(c, W, H, cue?.text);
-    drawEndCard(c, W, H, { title, host, price }, t > endFrom ? Math.min(1, (t - endFrom) / 0.5) : 0);
+    drawEndCard(c, W, H, { title, host, price, logo, payments }, t > endFrom ? Math.min(1, (t - endFrom) / 0.5) : 0);
   };
 }
 

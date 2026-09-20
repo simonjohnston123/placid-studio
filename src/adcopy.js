@@ -20,6 +20,16 @@ const pick = (list, seen = null) => {
 // shopper ("BLDC Motor", "P7"). Familiar ones stay; the rest are dropped from
 // anything spoken. The product's real name still appears on screen and in the post.
 const KNOWN = new Set(['LED', 'USB', 'HD', 'UHD', '4K', 'TV', 'UV', 'AC', 'DC', 'PVC', 'ABS', 'IP', 'XL', 'XXL', 'SUV', 'RV', 'PC', 'WIFI']);
+// The supplier's feed drops degree symbols, leaving "bend up to 180" and
+// "(180 flexibility)", which reads and speaks as nonsense. Only applied next to
+// words that can only mean an angle — no units are invented anywhere else.
+export function fixDegrees(text) {
+  return String(text || '')
+    .replace(/\b(\d{2,3})\s*(?=(flexibility|rotation|swivel|tilt|angle)\b)/gi, '$1 degree ')
+    .replace(/\b(bends?|bending|folds?|rotates?|swivels?|tilts?)(\s+(?:up\s+)?to\s+)(\d{2,3})\b(?!\s*(degree|%|mm|cm|kg|w|v))/gi, '$1$2$3 degrees')
+    .replace(/\s{2,}/g, ' ');
+}
+
 export function deJargon(text) {
   return String(text || '')
     .split(/\s+/)
@@ -115,7 +125,7 @@ export function productScript(card) {
   const seen = new Set();
   const name = deJargon(shortName(card.title));
   const list = facts(card);
-  const fact = deJargon(deName(list[0], card.title));
+  const fact = fixDegrees(deJargon(deName(list[0], card.title)));
   // A second fact only if it says something new.
   const extra = list.slice(1).find(f => !overlaps(f, list[0] || '')) || null;
 
@@ -143,7 +153,7 @@ export function productScript(card) {
     `Why it's worth it: ${fact.replace(/^./, m => m.toLowerCase())}.`,
   ], seen) : null;
 
-  const second = extra ? `${deJargon(deName(extra, card.title))}.` : null;
+  const second = extra ? `${fixDegrees(deJargon(deName(extra, card.title)))}.` : null;
 
   const price = card.priceCents ? pick([
     // Wording matches the product page: delivery is calculated at checkout, never free.
