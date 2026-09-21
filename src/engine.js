@@ -79,6 +79,14 @@ export async function loadProduct(link, { base = null, onProgress } = {}) {
   const card = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(card.error || `The product could not be read (${res.status}).`);
   if (!card.images?.length) throw new Error('That product has no photos to make a reel from.');
+  // The card is built by whichever site answered, so inside the CRM its url
+  // comes back on the CRM's host — and the reel would print placidcrm.com on
+  // screen and in the caption. The shop is the link that was pasted.
+  try {
+    const shop = new URL(card.url);
+    shop.protocol = u.protocol; shop.host = u.host;
+    card.url = shop.href;
+  } catch { card.url = u.href; }
   onProgress?.('Downloading product photos…', null);
   const photos = [];
   for (const src of card.images.slice(0, 5)) {
