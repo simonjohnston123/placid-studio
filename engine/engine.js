@@ -678,6 +678,12 @@ async function X(e, { base: t = null, onProgress: n } = {}) {
 	let i = t || r.origin, a = await fetch(`${i}/api/public/product-card?url=${encodeURIComponent(r.href)}`), o = await a.json().catch(() => ({}));
 	if (!a.ok) throw Error(o.error || `The product could not be read (${a.status}).`);
 	if (!o.images?.length) throw Error("That product has no photos to make a reel from.");
+	try {
+		let e = new URL(o.url);
+		e.protocol = r.protocol, e.host = r.host, o.url = e.href;
+	} catch {
+		o.url = r.href;
+	}
 	n?.("Downloading product photos…", null);
 	let s = [];
 	for (let e of o.images.slice(0, 5)) {
