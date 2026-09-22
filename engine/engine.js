@@ -256,21 +256,22 @@ var n = [
 };
 o.prototype.renderFrames = async function(e, t, n, r, i, { fps: a = 24, onTick: o } = {}) {
 	this.stop(), r && (n = Math.max(n, r.samples.length / r.rate + .6));
-	let s = n / e.length, c = Math.ceil(n * a), l = -1, u = (t) => {
-		t !== l && (l = t, this.load(e[t].image, e[t].depth));
+	let s = n / e.length, c = Array.isArray(t.shotStarts) && t.shotStarts.length === e.length ? t.shotStarts : e.map((e, t) => t * s), l = Math.ceil(n * a), u = -1, d = (t) => {
+		t !== u && (u = t, this.load(e[t].image, e[t].depth));
 	};
-	for (let n = 0; n < c; n++) {
-		let r = n / a, l = Math.min(e.length - 1, Math.floor(r / s));
-		u(l);
-		let d = Math.min(1, (r - l * s) / s), f = e.length > 1 ? Math.min(1, (r - l * s) / .3) : 1;
-		this.draw(e[l].motion, d, {
+	for (let r = 0; r < l; r++) {
+		let s = r / a, u = 0;
+		for (; u + 1 < e.length && c[u + 1] <= s;) u++;
+		d(u);
+		let f = Math.max(.5, (u + 1 < e.length ? c[u + 1] : n) - c[u]), p = Math.min(1, (s - c[u]) / f), m = e.length > 1 ? Math.min(1, (s - c[u]) / .3) : 1;
+		this.draw(e[u].motion, p, {
 			...t,
-			alpha: f
-		}), t.onFrame?.(this.ctx, r, l), await i(this.out, n, c), o?.((n + 1) / c);
+			alpha: m
+		}), t.onFrame?.(this.ctx, s, u), await i(this.out, r, l), o?.((r + 1) / l);
 	}
 	return {
 		seconds: n,
-		frames: c,
+		frames: l,
 		fps: a
 	};
 };
@@ -304,11 +305,11 @@ var c = (e, t = null) => {
 ], d = (e) => {
 	let t = parseInt(e, 10);
 	return t >= 0 && t < u.length ? u[t] : String(e);
-}, f = (e) => String(e || "").replace(/^./, (e) => e.toLowerCase()), p = (e) => e % 100 ? `$${(e / 100).toFixed(2)}` : `$${e / 100}`;
-function m(e) {
+}, f = (e) => String(e || "").replace(/^./, (e) => e.toUpperCase()), p = (e) => String(e || "").replace(/^./, (e) => e.toLowerCase()), m = (e) => e % 100 ? `$${(e / 100).toFixed(2)}` : `$${e / 100}`;
+function h(e) {
 	return String(e || "").replace(/\b(\d{2,3})\s*(?=(flexibility|rotation|swivel|tilt|angle)\b)/gi, "$1 degree ").replace(/\b(bends?|bending|folds?|rotates?|swivels?|tilts?)(\s+(?:up\s+)?to\s+)(\d{2,3})\b(?!\s*(degree|%|mm|cm|kg|w|v))/gi, "$1$2$3 degrees").replace(/\s{2,}/g, " ");
 }
-var h = [
+var g = [
 	[
 		"floor lounge",
 		"floor lounge",
@@ -644,7 +645,7 @@ var h = [
 		"heater",
 		"home"
 	]
-], g = [
+], _ = [
 	"Artiss",
 	"Devanti",
 	"Keezi",
@@ -668,12 +669,12 @@ var h = [
 	"Rovar",
 	"Jingle Jollys"
 ];
-function _(e) {
+function v(e) {
 	return String(e || "").split(/\s[|–—-]\s|[|,(]|\s(?:with|for|featuring|including|suitable)\s/i)[0].trim();
 }
-function v(e) {
-	let t = ` ${_(e.title).toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `, n = null;
-	for (let [e, r, i] of h) {
+function y(e) {
+	let t = ` ${v(e.title).toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `, n = null;
+	for (let [e, r, i] of g) {
 		let a = [...t.matchAll(RegExp(` ${e.replace(/ /g, " ")}s? `, "g"))].pop(), o = a ? a.index : -1;
 		o >= 0 && (!n || o + e.length > n.end || o + e.length === n.end && e.length > n.len) && (n = {
 			say: r,
@@ -697,24 +698,24 @@ function v(e) {
 		known: !1
 	};
 }
-function y(e) {
+function b(e) {
 	if (e.brand && String(e.brand).length < 30) return String(e.brand);
 	let t = String(e.title || "").trim().split(/\s+/)[0] || "";
-	return g.find((e) => e.toLowerCase() === t.toLowerCase()) || null;
+	return _.find((e) => e.toLowerCase() === t.toLowerCase()) || null;
 }
-function b(e, t) {
-	let n = String(e.title || ""), r = [], i = y(e);
+function x(e, t) {
+	let n = String(e.title || ""), r = [], i = b(e);
 	i && r.push(i);
 	let a = n.match(/\b(\d)[\s-]?seat(?:er)?\b/i);
 	return a && t.family === "seat" && r.push(`${d(a[1])}-seater`), /\b(kids?|toddler|children'?s?)\b/i.test(n) && !/kid/.test(t.noun) && r.push("kids'"), r.push(t.noun === "one" ? "find" : t.noun), `${t.plural ? "these" : "this"} ${r.join(" ")}`;
 }
-var x = {
+var S = {
 	features: /^(key\s+)?features?\s*:?$|^highlights?\s*:?$|^this item stands out for the following characteristics\s*:?$/i,
 	specs: /^(specifications?|specs|dimensions?|technical (details|specifications))\s*:?$/i,
 	pack: /^(package|packaging)\s+(content|contents|includes?)\s*:?$|^in the box\s*:?$|^what'?s included\s*:?$/i,
 	skip: /^(description|note|notes|warranty|shipping|delivery)\s*:?$/i
 };
-function S(e) {
+function C(e) {
 	let t = String(e.description || "").split(/\n+/).map((e) => e.trim()).filter(Boolean);
 	String(e.description || "").length >= 1190 && t.pop();
 	let n = {
@@ -723,19 +724,19 @@ function S(e) {
 		hasSpecs: !1
 	}, r = "prose";
 	for (let e of t) {
-		if (x.features.test(e)) {
+		if (S.features.test(e)) {
 			r = "features";
 			continue;
 		}
-		if (x.specs.test(e)) {
+		if (S.specs.test(e)) {
 			r = "specs", n.hasSpecs = !0;
 			continue;
 		}
-		if (x.pack.test(e)) {
+		if (S.pack.test(e)) {
 			r = "pack";
 			continue;
 		}
-		if (x.skip.test(e)) {
+		if (S.skip.test(e)) {
 			/description/i.test(e) || (r = "skip");
 			continue;
 		}
@@ -744,21 +745,21 @@ function S(e) {
 	let i = `${e.title} ${e.description}`;
 	return n.hasOptions = n.hasSpecs || /\b\d+(\.\d+)?\s*(cm|mm|m)\s*(x|×)\s*\d/i.test(i) || /\b(sizes?|colou?rs?|variants?|options?)\s+(available|to choose)|available in\b|random colou?r/i.test(i) || (String(e.title).match(/\|/g) || []).length >= 2, n;
 }
-var C = (e) => {
+var w = (e) => {
 	let t = String(e).replace(/\s*(&|\band\b)\s*/gi, ",").split(/\s*,\s*/).map((e) => e.trim().toLowerCase()).filter(Boolean);
 	return t.length > 1 ? `${t.slice(0, -1).join(", ")} and ${t[t.length - 1]}` : t[0] || "";
-}, w = [
+}, T = [
 	{
 		tag: "adjust",
 		score: 8,
-		re: /\b(\d+)[\s-]*(?:position|angle|level|stage)s?\b.*adjust|adjust\w*\s+(?:to\s+)?(\d+)\s+(?:positions|angles|levels)/i,
+		re: /\b(\d+)[\s-]*(?:position|angle|level|stage)s?\b.*adjust|adjust\w*[^.]*?\b(\d+)\s+(?:positions|angles|levels)\b/i,
 		say: (e, t) => `It adjusts to ${d(e[1] || e[2])} different positions${t.family === "seat" ? ", so you can sit up or lie right back" : ""}.`
 	},
 	{
 		tag: "adjust",
 		score: 8,
 		re: /^adjustable\s+(.+?)(\s+sections?)?\.?$/i,
-		say: (e, t) => `You can adjust the ${C(e[1])}${e[2] ? " sections" : ""}${t.family === "seat" ? ", so it works for sitting back, lounging or stretching right out" : ""}.`
+		say: (e, t) => `You can adjust the ${w(e[1])}${e[2] ? " sections" : ""}${t.family === "seat" ? ", so it works for sitting back, lounging or stretching right out" : ""}.`
 	},
 	{
 		tag: "store",
@@ -949,11 +950,11 @@ var C = (e) => {
 		re: /\bmagnetic\s+(base|back|mount)\b/i,
 		say: (e) => `It's got a magnetic ${e[1].toLowerCase()}.`
 	}
-], T = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, E = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
-function D(e, t, n = !0) {
-	let r = m(String(e).replace(/[✀-➿←-⇿⬀-⯿️•▪●★✔✅❌]/g, "").replace(/\s+/g, " ").trim());
+], E = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, D = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
+function O(e, t, n = !0) {
+	let r = h(String(e).replace(/[✀-➿←-⇿⬀-⯿️•▪●★✔✅❌]/g, "").replace(/\s+/g, " ").trim());
 	if (!r) return null;
-	for (let e of w) {
+	for (let e of T) {
 		if (e.tag === "fold" && ![
 			"seat",
 			"bed",
@@ -967,10 +968,10 @@ function D(e, t, n = !0) {
 			score: e.score
 		};
 	}
-	if (!n || T.test(r) || E.test(r)) return null;
+	if (!n || E.test(r) || D.test(r)) return null;
 	let i = r.replace(/[.!]$/, "").split(/\s+/);
 	if (i.length >= 2 && i.length <= 5 && !/\d/.test(r) && !/^(it|this|the|you|and|or|for|to)\b/i.test(r)) {
-		let e = f(r.replace(/[.!]$/, ""));
+		let e = p(r.replace(/[.!]$/, ""));
 		return {
 			text: `It's got ${/s$/.test(i[i.length - 1]) && !/ss$/.test(i[i.length - 1]) ? "" : /^[aeiou]/i.test(e) ? "an " : "a "}${e}.`,
 			tag: `np:${i[i.length - 1].toLowerCase()}`,
@@ -979,77 +980,77 @@ function D(e, t, n = !0) {
 	}
 	return null;
 }
-function O(e, t, n) {
-	let r = m(String(e).trim());
-	if (!r || E.test(r) || T.test(r) || /\?$/.test(r)) return null;
+function k(e, t, n) {
+	let r = h(String(e).trim());
+	if (!r || D.test(r) || E.test(r) || /\?$/.test(r)) return null;
 	let i = r.split(/\s+/);
 	if (i.length < 5 || i.length > 14 || (r.match(/,/g) || []).length > 1) return null;
 	let a = String(t.title).toLowerCase().split(/\s+/), o = r.toLowerCase();
 	for (let e = 0; e + 2 < a.length; e++) if (o.includes(a.slice(e, e + 3).join(" "))) return null;
-	return y(t) && o.includes(y(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${f(r)}`), {
+	return b(t) && o.includes(b(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
 		text: /[.!?]$/.test(r) ? r : `${r}.`,
 		tag: `prose:${i[0].toLowerCase()}`,
 		score: 2
 	});
 }
-function k(e, t) {
-	let n = S(e), r = [], i = /* @__PURE__ */ new Set(), a = (e) => {
+function A(e, t) {
+	let n = C(e), r = [], i = /* @__PURE__ */ new Set(), a = (e) => {
 		e && !i.has(e.tag) && !r.some((t) => t.text === e.text) && (i.add(e.tag), r.push(e));
 	};
-	for (let e of n.bullets) a(D(e, t));
+	for (let e of n.bullets) a(O(e, t));
 	for (let e of n.prose) {
-		let n = D(e, t, !1);
+		let n = O(e, t, !1);
 		n && n.score > 1 && a(n);
 	}
-	if (r.filter((e) => e.score > 1).length < 2) for (let r of n.prose) a(O(r, e, t));
+	if (r.filter((e) => e.score > 1).length < 2) for (let r of n.prose) a(k(r, e, t));
 	return {
 		list: r.sort((e, t) => t.score - e.score).slice(0, 4),
 		copy: n
 	};
 }
 var ee = /\b(introducing|this product features|this product|here is the solution|here'?s the fix|the solution is|features include|boasts|comes equipped|is equipped with|ideal for|perfect for|high[- ]quality|premium|state[- ]of[- ]the[- ]art|meet the|sorted\.)\b/i;
-function A(e, t) {
+function j(e, t) {
 	let n = String(e || "").trim();
-	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || ee.test(n) || E.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
+	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || ee.test(n) || D.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
 	if (t) {
 		let e = String(t.title).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean), r = n.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
 		for (let t = 0; t + 3 < e.length; t++) if (r.includes(e.slice(t, t + 4).join(" "))) return !1;
 	}
 	return !0;
 }
-function j(e, t, n) {
+function te(e, t, n) {
 	let r = t.noun, i = /\b(kids?|toddler|children)\b/i.test(e.title), a = t.family, o = [];
 	return a === "seat" ? (n.adjust && o.push("Need somewhere to kick back that you can actually adjust to suit you?"), (n.store || n.fold) && o.push("Need somewhere to kick back that doesn't take up half the room?"), i ? o.push("Want a comfy little spot that's just for the kids?", "Need somewhere comfy for the little ones to chill out?") : o.push("Need a comfy spot to put your feet up?", "Want a proper spot to kick back after a long day?")) : a === "cushion" ? o.push("Spend most of the day sitting down?", "Is your chair getting uncomfortable by the afternoon?") : a === "bed" ? o.push("Not sleeping as well as you'd like?", "Reckon it's time your bed got an upgrade?") : a === "clean" ? /vacuum/.test(r) ? (n.cordless && o.push("Still dragging the big vacuum out just to clean one little mess?", "Still wrestling with a vacuum cord?"), n.battery && o.push("Want a vacuum that won't give up halfway through the house?"), o.push("Sick of lugging a heavy vacuum around the house?")) : o.push("Want cleaning to be a bit less of a chore?", "Looking for an easier way to keep things clean?") : a === "outdoor" ? o.push("Heading to the beach this summer?", "Want a bit of proper shade when you head out?") : a === "garden" ? o.push("Want to give the garden a bit of life?", "Okay, this is actually pretty handy if you've got a backyard.") : a === "pet" ? o.push(/dog/i.test(e.title) ? "Want something a bit special for your dog?" : "Got a pet that deserves a treat?") : a === "kitchen" ? o.push(/timer/.test(r) ? "Always losing track of time in the kitchen?" : "Want one less thing to think about in the kitchen?") : a === "light" ? o.push(/head/.test(r) ? "Need both hands free when it gets dark?" : "Need a bit more light where it counts?") : a === "beauty" ? o.push("Doing your nails at home?", "Want salon-style nails without leaving the house?") : a === "jewellery" ? o.push("Looking for a little something special?", "After a gift that feels a bit different?") : a === "sport" && o.push("Getting serious about your training?", "Want gear that keeps up with you?"), t.known ? o.push(t.plural ? `Been after some new ${r}?` : `Been after a new ${r}?`, `Okay, this ${t.plural ? "is" : "one is"} actually pretty handy.`) : o.push("Found something pretty handy for around the home.", "Here's one worth a look."), o;
 }
-function M(e) {
-	let t = v(e), n = j(e, t, Object.fromEntries(k(e, t).list.map((e) => [e.tag, !0]))).filter((t) => A(t, e) && t.split(/\s+/).length <= 14);
+function ne(e) {
+	let t = y(e), n = te(e, t, Object.fromEntries(A(e, t).list.map((e) => [e.tag, !0]))).filter((t) => j(t, e) && t.split(/\s+/).length <= 14);
 	return Math.random() < .7 ? n[0] : c(n);
 }
-var te = [
+var re = [
 	`There are a few options available, so check the full details at ${l}.`,
 	`Have a look at ${l} for the available options and full specifications.`,
 	`There's more than one option, so pick the right one at ${l}.`
-], ne = [
+], ie = [
 	`Want to check the sizing and specs? You'll find everything on the product page at ${l}.`,
 	`Check ${l} to make sure the size and options are right for you.`,
 	`Check the sizing and full specs on the product page at ${l}.`
-], re = [
+], ae = [
 	`Want the full specs? They're all on the product page at ${l}.`,
 	`You'll find the full details and specs at ${l}.`,
 	`Check out the full details at ${l}.`,
 	`For all the details, have a look at ${l}.`
-], ie = [
+], oe = [
 	`Check it out at ${l}.`,
 	`Grab yours at ${l}.`,
 	`Find it at ${l}.`,
 	`Have a look at ${l}.`
 ];
-function N(e, { hook: t = null } = {}) {
-	let n = /* @__PURE__ */ new Set(), r = v(e), i = b(e, r), { list: a, copy: o } = k(e, r), s = c(r.known ? [
+function se(e, { hook: t = null } = {}) {
+	let n = /* @__PURE__ */ new Set(), r = y(e), i = x(e, r), { list: a, copy: o } = A(e, r), s = c(r.known ? [
 		`Check out ${i}.`,
 		`Have a look at ${i}.`,
 		`Take a look at ${i}.`
-	] : ["Check this out.", "Have a look at this."], n), l = a.map((e) => e.text).filter((t) => A(t, e));
+	] : ["Check this out.", "Have a look at this."], n), l = a.map((e) => e.text).filter((t) => j(t, e));
 	l.length > 1 && (l = l.filter((e, t) => t < 2 || !/^It's got /.test(e)));
 	let u = (e) => new Set((e.toLowerCase().match(/[a-z]{5,}/g) || []).filter((e) => ![
 		"there",
@@ -1058,25 +1059,175 @@ function N(e, { hook: t = null } = {}) {
 		"makes"
 	].includes(e)));
 	l = l.filter((e, t) => !l.slice(0, t).some((t) => [...u(e)].filter((e) => u(t).has(e)).length >= 2)), l = l.slice(0, 4), l[0] && (l[0] = l[0].replace(/,\s*(too|either)\.$/, ".")), r.plural && (l = l.map((e) => e.replace(/^It's\b/, "They're").replace(/^It\b/, "They").replace(/^It even\b/, "They even")));
-	let f = e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? c(r.plural ? [`They're ${p(e.priceCents)}.`, `You can grab them for ${p(e.priceCents)}.`] : [
-		`This one's ${p(e.priceCents)}.`,
-		`It's ${p(e.priceCents)}.`,
-		`You can grab it for ${p(e.priceCents)}.`
-	], n) : null, m = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? ne : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? te : re, n) : null) || c(ie, n), _ = [
+	let f = e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? c(r.plural ? [`They're ${m(e.priceCents)}.`, `You can grab them for ${m(e.priceCents)}.`] : [
+		`This one's ${m(e.priceCents)}.`,
+		`It's ${m(e.priceCents)}.`,
+		`You can grab it for ${m(e.priceCents)}.`
+	], n) : null, p = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? ie : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? re : ae, n) : null) || c(oe, n), _ = [
 		s,
 		...l,
 		f,
-		m,
+		p,
 		g
-	].filter(Boolean).filter((t) => A(t, e) || t === g), y = new Set(String(t || "").toLowerCase().match(/[a-z]{5,}/g) || []);
+	].filter(Boolean).filter((t) => j(t, e) || t === g), v = new Set(String(t || "").toLowerCase().match(/[a-z]{5,}/g) || []);
 	return _.filter((e, t) => {
-		if (t === 0 || e === g || e === f || e === m) return !0;
+		if (t === 0 || e === g || e === f || e === p) return !0;
 		let n = e.toLowerCase().match(/[a-z]{5,}/g) || [];
-		return !n.length || !n.every((e) => y.has(e));
+		return !n.length || !n.every((e) => v.has(e));
 	}).join(" ").replace(/\s{2,}/g, " ").trim();
 }
-function P(e) {
-	let t = v(e), { list: n } = k(e, t), r = n.filter((t) => A(t.text, e)), i = [];
+var ce = [
+	[
+		"First up,",
+		"Next,",
+		"Then there's",
+		"And finally,"
+	],
+	[
+		"Start with",
+		"Then",
+		"There's also",
+		"And"
+	],
+	[
+		"First,",
+		"Second,",
+		"Third,",
+		"Last one,"
+	]
+], M = (e) => String(e || "").replace(/&/g, "and").replace(/\s+/g, " ").trim().toLowerCase();
+function le(e, { categoryName: t }) {
+	let n = /* @__PURE__ */ new Set(), r = e.filter((e) => {
+		let t = v(e.title).toLowerCase().split(/\s+/).slice(0, 5).join(" ");
+		return !n.has(t) && (n.add(t), !0);
+	}).slice(0, 4), i = /* @__PURE__ */ new Set(), a = /* @__PURE__ */ new Set(), o = r.length, s = M(t), u = c([
+		`Shopping for ${s}? Here are ${d(o)} worth a look.`,
+		`Need new ${s}? These ${d(o)} are worth a look.`,
+		`${f(d(o))} ${s} we'd pick this week.`,
+		`Looking at ${s}? Start with these ${d(o)}.`
+	], i), p = c(ce, i), h = [], g = [];
+	r.forEach((e, t) => {
+		let n = y(e), r = x(e, n).replace(/^(this|these) /, ""), i = A(e, n).list.map((e) => e.text).find((t) => j(t, e) && !a.has(t)) || null;
+		i && a.add(i);
+		let o = e.priceCents ? m(e.priceCents) : null, s = p[Math.min(t, p.length - 1)];
+		g.push(`${s} this ${r}${o ? ` at ${o}` : ""}.`), i && g.push(i.replace(/,\s*(too|either)\.$/, ".")), h.push({
+			name: v(e.title).split(/\s+/).slice(0, 5).join(" "),
+			price: e.priceLabel || o,
+			benefit: i,
+			intro: g[g.length - (i ? 2 : 1)]
+		});
+	});
+	let _ = c([
+		`See the whole range at ${l}.`,
+		`There's plenty more in the range at ${l}.`,
+		`Have a look at the full range at ${l}.`
+	], i);
+	return {
+		hook: u,
+		script: [...g.filter((e) => j(e) || /\$\d/.test(e)), _].join(" "),
+		items: h,
+		cards: r
+	};
+}
+var ue = (e) => `#${String(e).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "")}`;
+function de(e, { categoryName: t, linkUrl: n }) {
+	let r = [
+		e.hook,
+		...e.items.map((e) => `• ${e.name}${e.price ? ` — ${e.price}` : ""}`),
+		`See the whole range at ${l}`,
+		n
+	], i = [.../* @__PURE__ */ new Set([
+		"#placiddeals",
+		"#australia",
+		ue(t),
+		"#homedecor",
+		"#homeinspo"
+	])].slice(0, 6);
+	return {
+		caption: `${r.join("\n")}\n\n${i.join(" ")}`,
+		hashtags: i
+	};
+}
+function fe(e, { linkUrl: t }) {
+	let n = [
+		e.hook,
+		N.owned,
+		N.delivery,
+		N.payLater,
+		`Shop at ${l}`,
+		t
+	], r = [
+		"#placiddeals",
+		"#australia",
+		"#australianowned",
+		"#shoponline",
+		"#homeinspo"
+	];
+	return {
+		caption: `${n.join("\n")}\n\n${r.join(" ")}`,
+		hashtags: r
+	};
+}
+var N = {
+	owned: "Placid Deals is Australian owned and operated.",
+	what: "Everything for the home, delivered.",
+	delivery: "You'll see the delivery cost for your postcode before you pay.",
+	payLater: "Afterpay and Zip are there at checkout.",
+	checked: "Stock and delivery get checked again before you pay, so there are no surprises.",
+	returns: "And if something's not right, there's a returns policy."
+}, pe = {
+	"outdoor and camping": "camping gear",
+	"home and garden": "homewares",
+	"sports and fitness": "fitness gear",
+	"baby and kids": "kids' stuff",
+	"health and beauty": "beauty",
+	"audio, video and photography": "tech",
+	"audio video and photography": "tech",
+	"car and auto": "car gear",
+	"party and occasions": "party supplies",
+	"gifts and novelty": "gifts",
+	"commercial and hospitality": "hospitality gear"
+}, me = (e) => pe[M(e)] || M(e);
+function he({ departments: e = [] } = {}) {
+	let t = /* @__PURE__ */ new Set(), n = c([
+		"Ever bought something online and got stung on delivery at the end?",
+		"Want the delivery cost before you get to the checkout?",
+		"Here's where to get everything for the home.",
+		"Heard of Placid Deals?"
+	], t), r = e.length >= 3 ? `There's ${e.slice(0, 3).map(me).join(", ").replace(/, ([^,]*)$/, " and $1")}, and plenty more.` : null, i = c([
+		[
+			N.delivery,
+			N.payLater,
+			N.checked
+		],
+		[
+			N.payLater,
+			N.delivery,
+			N.returns
+		],
+		[
+			N.delivery,
+			N.checked,
+			N.payLater
+		]
+	], t), a = c([
+		`Have a look at ${l}.`,
+		`It's all at ${l}.`,
+		`Find us at ${l}.`
+	], t);
+	return {
+		hook: n,
+		script: [
+			N.owned,
+			N.what,
+			r,
+			...i,
+			a
+		].filter(Boolean).join(" ")
+	};
+}
+function ge(e) {
+	let t = y(e), { list: n } = A(e, t), r = n.filter((t) => j(t.text, e)), i = [];
 	return t.known || i.push("can't tell what the product is from its title"), r.length < 2 && i.push(`only ${r.length} sayable benefit${r.length === 1 ? "" : "s"} in the product copy (need 2)`), e.priceCents || i.push("no current price"), {
 		ok: !i.length,
 		noun: t.noun,
@@ -1085,11 +1236,11 @@ function P(e) {
 		reasons: i
 	};
 }
-function F(e, t, { trendTerms: n = [] } = {}) {
-	let r = v(e), i = [
+function P(e, t, { trendTerms: n = [] } = {}) {
+	let r = y(e), i = [
 		t,
-		k(e, r).list.map((e) => e.text).find((t) => A(t, e)) || null,
-		e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? `${p(e.priceCents)} at ${l}` : `Have a look at ${l}`,
+		A(e, r).list.map((e) => e.text).find((t) => j(t, e)) || null,
+		e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? `${m(e.priceCents)} at ${l}` : `Have a look at ${l}`,
 		e.url
 	].filter(Boolean), a = (e) => `#${String(e).toLowerCase().replace(/[^a-z0-9]+/g, "")}`, o = new Set([...r.noun.split(/\s+/), r.noun.replace(/\s+/g, "")].filter((e) => e.length > 3 && e !== "find")), s = {
 		seat: ["homedecor", "livingroom"],
@@ -1118,17 +1269,17 @@ function F(e, t, { trendTerms: n = [] } = {}) {
 		hashtags: d
 	};
 }
-function I(e, t) {
+function F(e, t) {
 	let n = String(e || "").trim(), r = String(t || "").trim();
-	return L(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
+	return _e(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
 }
-function L(e) {
+function _e(e) {
 	return String(e || "").replace(/\bplaciddeals\.com\b/gi, "Placid Deals dot com").replace(/\s{2,}/g, " ").trim();
 }
 //#endregion
 //#region src/reel.js
-var R = "\"Segoe UI\", system-ui, -apple-system, Helvetica, sans-serif";
-async function z(e, t = 44100) {
+var I = "\"Segoe UI\", system-ui, -apple-system, Helvetica, sans-serif";
+async function L(e, t = 44100) {
 	let n = new OfflineAudioContext(1, Math.ceil(e * t), t), r = 60 / 104, i = Math.ceil(e / (r * 4)) + 1, a = [
 		[
 			220,
@@ -1173,7 +1324,7 @@ async function z(e, t = 44100) {
 	}
 	return (await n.startRendering()).getChannelData(0);
 }
-function B(e, t, n = .45) {
+function R(e, t, n = .45) {
 	let r = Math.max(e.samples.length, t ? t.length : 0), i = new Float32Array(r);
 	if (i.set(e.samples), t) for (let a = 0; a < r; a++) {
 		let r = Math.abs(e.samples[a] || 0);
@@ -1187,7 +1338,7 @@ function B(e, t, n = .45) {
 		rate: e.rate
 	};
 }
-function V(e, t) {
+function z(e, t) {
 	let { samples: n, rate: r } = t, i = n.length / r, a = Math.floor(r * .03), o = [];
 	for (let e = 0; e < n.length; e += a) {
 		let t = 0;
@@ -1197,7 +1348,7 @@ function V(e, t) {
 	let s = ([...o].sort((e, t) => e - t)[Math.floor(o.length * .95)] || 1) * .06, c = [], l = null;
 	o.forEach((e, t) => {
 		e < s ? l === null && (l = t) : (l !== null && (t - l) * .03 > .18 && c.push((l + t) / 2 * .03), l = null);
-	}), e = H(e);
+	}), e = ve(e);
 	let u = e.replace(/\s+/g, " ").trim().split(/(?<=[.!?;:,])\s+/).flatMap((e) => {
 		let t = e.split(" ");
 		if (t.length <= 5) return [e];
@@ -1214,16 +1365,16 @@ function V(e, t) {
 		}), m = p[p.length - 1].t1;
 	}), p;
 }
-function H(e) {
+function ve(e) {
 	return String(e || "").replace(/\bplacid\s+deals\s+dot\s+com\b/gi, "placiddeals.com").replace(/\b([a-z0-9-]+)\s+dot\s+(com|com\.au|net|org|co)\b/gi, (e, t, n) => `${t}.${n}`).replace(/\s{2,}/g, " ").trim();
 }
-function U(e, t, n, r, i, a) {
+function B(e, t, n, r, i, a) {
 	e.beginPath(), e.roundRect(t, n, r, i, a);
 }
-function W(e, t, n, r, i, a = 3) {
+function V(e, t, n, r, i, a = 3) {
 	let o = i;
 	for (; o > i * .55; o -= 2) {
-		e.font = `${r} ${o}px ${R}`;
+		e.font = `${r} ${o}px ${I}`;
 		let i = t.split(/\s+/), s = [], c = "";
 		for (let t of i) {
 			let r = c ? `${c} ${t}` : t;
@@ -1234,104 +1385,104 @@ function W(e, t, n, r, i, a = 3) {
 			lines: s
 		};
 	}
-	return e.font = `${r} ${o}px ${R}`, {
+	return e.font = `${r} ${o}px ${I}`, {
 		fs: o,
 		lines: [t]
 	};
 }
-function G(e, t, n, r, i) {
+function H(e, t, n, r, i) {
 	if (i <= 0) return;
 	e.save(), e.globalAlpha = i;
-	let a = t * .07, { fs: o, lines: s } = W(e, r.toUpperCase(), t - a * 2, 800, Math.round(t * .095), 3), c = o * 1.15, l = s.length * c + a * .8, u = n * .175;
-	e.fillStyle = "rgba(0,0,0,.55)", U(e, a * .5, u - a * .4, t - a, l, t * .035), e.fill(), e.textBaseline = "top", e.textAlign = "center", s.forEach((n, r) => {
+	let a = t * .07, { fs: o, lines: s } = V(e, r.toUpperCase(), t - a * 2, 800, Math.round(t * .095), 3), c = o * 1.15, l = s.length * c + a * .8, u = n * .175;
+	e.fillStyle = "rgba(0,0,0,.55)", B(e, a * .5, u - a * .4, t - a, l, t * .035), e.fill(), e.textBaseline = "top", e.textAlign = "center", s.forEach((n, r) => {
 		e.fillStyle = "#fff", e.strokeStyle = "rgba(0,0,0,.65)", e.lineWidth = o * .14, e.lineJoin = "round", e.strokeText(n, t / 2, u + r * c), e.fillText(n, t / 2, u + r * c);
 	}), e.restore();
 }
-function K(e, t, n, r) {
+function U(e, t, n, r) {
 	if (!r) return;
 	e.save();
-	let { fs: i, lines: a } = W(e, r, t - t * .08 * 2, 700, Math.round(t * .062), 2), o = i * 1.2, s = n * .7;
+	let { fs: i, lines: a } = V(e, r, t - t * .08 * 2, 700, Math.round(t * .062), 2), o = i * 1.2, s = n * .7;
 	e.textAlign = "center", e.textBaseline = "top";
 	for (let n of a) e.strokeStyle = "rgba(0,0,0,.8)", e.lineWidth = i * .18, e.lineJoin = "round", e.strokeText(n, t / 2, s), e.fillStyle = "#fff", e.fillText(n, t / 2, s), s += o;
 	e.restore();
 }
-var q = {
+var W = {
 	deep: "#1E0733",
 	deep2: "#2C0B4E",
 	violet: "#8B5CF6",
 	light: "#A78BFA",
 	ink: "#ffffff"
 };
-function J(e, t, n, r) {
+function G(e, t, n, r) {
 	e.save(), e.translate(t, n);
 	let i = r / 64;
 	e.scale(i, i);
 	let a = e.createLinearGradient(0, 0, 64, 64);
-	a.addColorStop(0, q.light), a.addColorStop(1, q.violet), e.fillStyle = a, e.beginPath(), e.moveTo(14, 8), e.lineTo(34, 8), e.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2), e.lineTo(14, 56), e.closePath(), e.fill(), e.globalCompositeOperation = "destination-out", e.beginPath(), e.moveTo(26, 20), e.lineTo(34, 20), e.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2), e.lineTo(26, 44), e.closePath(), e.fill(), e.globalCompositeOperation = "source-over", e.fillStyle = a, e.beginPath(), e.moveTo(20, 46), e.lineTo(20, 26), e.lineTo(34, 12), e.lineTo(44, 22), e.lineTo(30, 36), e.lineTo(30, 46), e.closePath(), e.fill(), e.fillStyle = q.deep, e.beginPath(), e.arc(35, 21, 2.6, 0, Math.PI * 2), e.fill(), e.restore();
+	a.addColorStop(0, W.light), a.addColorStop(1, W.violet), e.fillStyle = a, e.beginPath(), e.moveTo(14, 8), e.lineTo(34, 8), e.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2), e.lineTo(14, 56), e.closePath(), e.fill(), e.globalCompositeOperation = "destination-out", e.beginPath(), e.moveTo(26, 20), e.lineTo(34, 20), e.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2), e.lineTo(26, 44), e.closePath(), e.fill(), e.globalCompositeOperation = "source-over", e.fillStyle = a, e.beginPath(), e.moveTo(20, 46), e.lineTo(20, 26), e.lineTo(34, 12), e.lineTo(44, 22), e.lineTo(30, 36), e.lineTo(30, 46), e.closePath(), e.fill(), e.fillStyle = W.deep, e.beginPath(), e.arc(35, 21, 2.6, 0, Math.PI * 2), e.fill(), e.restore();
 }
-function Y(e, t, n, r, i = !1) {
-	e.save(), e.textBaseline = "top", e.textAlign = i ? "center" : "left", e.font = `700 ${r}px ${R}`, e.fillStyle = q.ink, e.letterSpacing = `${r * .16}px`, e.fillText("PLACID", t, n);
+function ye(e, t, n, r, i = !1) {
+	e.save(), e.textBaseline = "top", e.textAlign = i ? "center" : "left", e.font = `700 ${r}px ${I}`, e.fillStyle = W.ink, e.letterSpacing = `${r * .16}px`, e.fillText("PLACID", t, n);
 	let a = e.measureText("PLACID").width, o = n + r * 1.12;
-	e.font = `600 ${r * .6}px ${R}`, e.fillStyle = q.light, e.letterSpacing = `${r * .26}px`, e.fillText("DEALS", t, o);
+	e.font = `600 ${r * .6}px ${I}`, e.fillStyle = W.light, e.letterSpacing = `${r * .26}px`, e.fillText("DEALS", t, o);
 	let s = e.measureText("DEALS").width;
 	e.letterSpacing = "0px";
 	let c = o + r * .3, l = r * .22, u = r * .5, d = i ? t - s / 2 : t;
-	return e.strokeStyle = q.violet, e.lineWidth = Math.max(1, r * .06), e.beginPath(), e.moveTo(d - l - u, c), e.lineTo(d - l, c), e.moveTo(d + s + l, c), e.lineTo(d + s + l + u, c), e.stroke(), e.restore(), a;
+	return e.strokeStyle = W.violet, e.lineWidth = Math.max(1, r * .06), e.beginPath(), e.moveTo(d - l - u, c), e.lineTo(d - l, c), e.moveTo(d + s + l, c), e.lineTo(d + s + l + u, c), e.stroke(), e.restore(), a;
 }
-function ae(e, t, n, { logo: r, host: i, price: a }) {
+function K(e, t, n, { logo: r, host: i, price: a }) {
 	let o = n * .105, s = n * .095;
 	e.save();
 	let c = e.createLinearGradient(0, 0, t, o);
-	c.addColorStop(0, q.deep), c.addColorStop(1, q.deep2), e.fillStyle = c, e.fillRect(0, 0, t, o), e.fillStyle = q.deep, e.fillRect(0, n - s, t, s), e.strokeStyle = q.violet, e.lineWidth = Math.max(2, t * .006), e.beginPath(), e.moveTo(0, o), e.lineTo(t, o), e.moveTo(0, n - s), e.lineTo(t, n - s), e.stroke(), e.strokeRect(e.lineWidth / 2, e.lineWidth / 2, t - e.lineWidth, n - e.lineWidth);
+	c.addColorStop(0, W.deep), c.addColorStop(1, W.deep2), e.fillStyle = c, e.fillRect(0, 0, t, o), e.fillStyle = W.deep, e.fillRect(0, n - s, t, s), e.strokeStyle = W.violet, e.lineWidth = Math.max(2, t * .006), e.beginPath(), e.moveTo(0, o), e.lineTo(t, o), e.moveTo(0, n - s), e.lineTo(t, n - s), e.stroke(), e.strokeRect(e.lineWidth / 2, e.lineWidth / 2, t - e.lineWidth, n - e.lineWidth);
 	let l = t * .05, u = o * .52;
 	if (r) {
 		let t = u * 1.25, n = t * (r.width / r.height);
 		e.drawImage(r, l, (o - t) / 2, n, t);
 	} else {
-		J(e, l, (o - u) / 2, u);
+		G(e, l, (o - u) / 2, u);
 		let t = u * .42;
-		e.save(), e.textBaseline = "middle", e.textAlign = "left", e.font = `700 ${t}px ${R}`, e.letterSpacing = `${t * .16}px`, e.fillStyle = q.ink;
+		e.save(), e.textBaseline = "middle", e.textAlign = "left", e.font = `700 ${t}px ${I}`, e.letterSpacing = `${t * .16}px`, e.fillStyle = W.ink;
 		let n = l + u * 1.3;
 		e.fillText("PLACID", n, o / 2);
 		let r = e.measureText("PLACID").width + t * .5;
-		e.fillStyle = q.light, e.fillText("DEALS", n + r, o / 2), e.letterSpacing = "0px", e.restore();
+		e.fillStyle = W.light, e.fillText("DEALS", n + r, o / 2), e.letterSpacing = "0px", e.restore();
 	}
 	if (a) {
 		let n = Math.round(t * .055);
-		e.font = `800 ${n}px ${R}`;
+		e.font = `800 ${n}px ${I}`;
 		let r = e.measureText(a).width + n * 1.1, i = n * 1.5, s = t - r - l, c = (o - i) / 2;
-		e.fillStyle = q.violet, U(e, s, c, r, i, i / 2), e.fill(), e.fillStyle = q.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(a, s + r / 2, c + i / 2 + 1);
+		e.fillStyle = W.violet, B(e, s, c, r, i, i / 2), e.fill(), e.fillStyle = W.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(a, s + r / 2, c + i / 2 + 1);
 	}
-	e.font = `700 ${Math.round(t * .045)}px ${R}`, e.fillStyle = q.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(i, t / 2, n - s / 2), e.restore();
+	e.font = `700 ${Math.round(t * .045)}px ${I}`, e.fillStyle = W.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(i, t / 2, n - s / 2), e.restore();
 }
-function oe(e, t, n, { title: r, host: i, price: a, logo: o, payments: s }, c) {
+function q(e, t, n, { title: r, host: i, price: a, logo: o, payments: s }, c) {
 	if (c <= 0) return;
 	e.save(), e.globalAlpha = c, e.fillStyle = "rgba(30,7,51,.93)", e.fillRect(0, 0, t, n);
 	let l = t * .09;
 	e.textAlign = "center";
-	let u = W(e, r, t - l * 2, 800, Math.round(t * .085), 3);
+	let u = V(e, r, t - l * 2, 800, Math.round(t * .085), 3);
 	e.textBaseline = "top";
 	let d = n * .3;
-	if (e.fillStyle = "#fff", u.lines.forEach((n, r) => e.fillText(n, t / 2, d + r * u.fs * 1.15)), d += u.lines.length * u.fs * 1.15 + n * .02, a && (e.font = `800 ${Math.round(t * .11)}px ${R}`, e.fillStyle = q.light, e.fillText(a, t / 2, d), d += t * .15), e.font = `700 ${Math.round(t * .058)}px ${R}`, e.fillStyle = "#fff", e.fillText(i, t / 2, d), d += t * .085, e.font = `600 ${Math.round(t * .042)}px ${R}`, e.fillStyle = "#9aa1ad", e.fillText("Link in bio", t / 2, d), s && (d += t * .075, e.font = `600 ${Math.round(t * .038)}px ${R}`, e.fillStyle = "#5eead4", e.fillText(s, t / 2, d)), o) {
+	if (e.fillStyle = "#fff", u.lines.forEach((n, r) => e.fillText(n, t / 2, d + r * u.fs * 1.15)), d += u.lines.length * u.fs * 1.15 + n * .02, a && (e.font = `800 ${Math.round(t * .11)}px ${I}`, e.fillStyle = W.light, e.fillText(a, t / 2, d), d += t * .15), e.font = `700 ${Math.round(t * .058)}px ${I}`, e.fillStyle = "#fff", e.fillText(i, t / 2, d), d += t * .085, e.font = `600 ${Math.round(t * .042)}px ${I}`, e.fillStyle = "#9aa1ad", e.fillText("Link in bio", t / 2, d), s && (d += t * .075, e.font = `600 ${Math.round(t * .038)}px ${I}`, e.fillStyle = "#5eead4", e.fillText(s, t / 2, d)), o) {
 		let r = t * .34, i = r * (o.height / o.width);
 		e.drawImage(o, (t - r) / 2, n * .12, r, i);
 	} else {
 		let r = t * .2;
-		J(e, (t - r) / 2, n * .09, r), Y(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
+		G(e, (t - r) / 2, n * .09, r), ye(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
 	}
 	e.restore();
 }
-function se({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
+function be({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
 	let c = Math.max(a - 2.2, a * .82);
 	return (a, l) => {
 		let u = a.canvas.width, d = a.canvas.height;
-		l < c && ae(a, u, d, {
+		l < c && K(a, u, d, {
 			logo: o,
 			host: i,
 			price: n
-		}), G(a, u, d, e, l < 2 ? Math.min(1, l / .25) : Math.max(0, 1 - (l - 2) / .6));
+		}), H(a, u, d, e, l < 2 ? Math.min(1, l / .25) : Math.max(0, 1 - (l - 2) / .6));
 		let f = t.find((e) => l >= e.t0 && l < e.t1);
-		l > 2.4 && K(a, u, d, f?.text), oe(a, u, d, {
+		l > 2.4 && U(a, u, d, f?.text), q(a, u, d, {
 			title: r,
 			host: i,
 			price: n,
@@ -1340,9 +1491,37 @@ function se({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o
 		}, l > c ? Math.min(1, (l - c) / .5) : 0);
 	};
 }
+function xe({ hook: e, cues: t, items: n, shotItem: r, host: i, seconds: a, title: o, logo: s = null, payments: c = null }) {
+	let l = Math.max(a - 2.4, a * .84);
+	return (a, u, d) => {
+		let f = a.canvas.width, p = a.canvas.height, m = r[Math.min(d ?? 0, r.length - 1)] ?? 0, h = n[m] || {};
+		u < l && (K(a, f, p, {
+			logo: s,
+			host: i,
+			price: h.price || null
+		}), u > 2.4 && h.name && Se(a, f, p, n.length > 1 ? `${m + 1} of ${n.length} · ${h.name}` : h.name)), H(a, f, p, e, u < 2 ? Math.min(1, u / .25) : Math.max(0, 1 - (u - 2) / .6));
+		let g = t.find((e) => u >= e.t0 && u < e.t1);
+		u > 2.4 && U(a, f, p, g?.text), q(a, f, p, {
+			title: o,
+			host: i,
+			price: null,
+			logo: s,
+			payments: c
+		}, u > l ? Math.min(1, (u - l) / .5) : 0);
+	};
+}
+function Se(e, t, n, r) {
+	e.save();
+	let i = Math.round(t * .04);
+	e.font = `700 ${i}px ${I}`;
+	let a = r;
+	for (; e.measureText(a).width > t * .84 && a.length > 12;) a = `${a.slice(0, -2).trimEnd()}…`;
+	let o = e.measureText(a).width + i * 1.2, s = i * 1.7, c = (t - o) / 2, l = n * .125;
+	e.fillStyle = "rgba(30,7,51,.82)", B(e, c, l, o, s, s / 2), e.fill(), e.strokeStyle = W.violet, e.lineWidth = 2, e.stroke(), e.fillStyle = W.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(a, t / 2, l + s / 2 + 1), e.restore();
+}
 //#endregion
 //#region src/store.js
-function ce(e, t) {
+function J(e, t) {
 	let n = /* @__PURE__ */ new ArrayBuffer(44 + e.length * 2), r = new DataView(n), i = (e, t) => [...t].forEach((t, n) => r.setUint8(e + n, t.charCodeAt(0)));
 	i(0, "RIFF"), r.setUint32(4, 36 + e.length * 2, !0), i(8, "WAVE"), i(12, "fmt "), r.setUint32(16, 16, !0), r.setUint16(20, 1, !0), r.setUint16(22, 1, !0), r.setUint32(24, t, !0), r.setUint32(28, t * 2, !0), r.setUint16(32, 2, !0), r.setUint16(34, 16, !0), i(36, "data"), r.setUint32(40, e.length * 2, !0);
 	for (let t = 0; t < e.length; t++) r.setInt16(44 + t * 2, Math.max(-1, Math.min(1, e[t])) * 32767, !0);
@@ -1350,10 +1529,10 @@ function ce(e, t) {
 }
 //#endregion
 //#region src/gen.worker.js?worker&url
-var le = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, ue = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
+var Ce = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, we = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
 //#endregion
 //#region src/engine.js
-function X(e) {
+function Y(e) {
 	let t = 0, n = /* @__PURE__ */ new Map();
 	return e.onmessage = ({ data: e }) => {
 		let t = n.get(e.id);
@@ -1374,13 +1553,13 @@ function X(e) {
 		});
 	});
 }
-function Z(e) {
+function X(e) {
 	if (e.origin === self.location.origin) return new Worker(e, { type: "module" });
 	let t = new Blob([`import ${JSON.stringify(e.href)};`], { type: "text/javascript" });
 	return new Worker(URL.createObjectURL(t), { type: "module" });
 }
-var de = null, fe = null, Q = () => de ??= X(Z(new URL(le, import.meta.url))), pe = () => fe ??= X(Z(new URL(ue, import.meta.url)));
-function me(e) {
+var Te = null, Ee = null, Z = () => Te ??= Y(X(new URL(Ce, import.meta.url))), Q = () => Ee ??= Y(X(new URL(we, import.meta.url)));
+function $(e) {
 	let t = /* @__PURE__ */ new Map();
 	return (n) => {
 		if (n.type === "progress") {
@@ -1391,7 +1570,7 @@ function me(e) {
 		} else n.type === "status" && (t.clear(), e?.(n.text, null));
 	};
 }
-async function he(e, { base: t = null, onProgress: n } = {}) {
+async function De(e, { base: t = null, onProgress: n } = {}) {
 	let r;
 	try {
 		r = new URL(e);
@@ -1419,7 +1598,7 @@ async function he(e, { base: t = null, onProgress: n } = {}) {
 		photos: s
 	};
 }
-var ge = [
+var Oe = [
 	"push",
 	"orbit",
 	"pan",
@@ -1427,10 +1606,10 @@ var ge = [
 	"crane",
 	"drift"
 ];
-async function $({ card: e, photos: t, hook: n, script: r, voice: i, music: a, logo: o, payments: s, onProgress: c }) {
-	let l = me(c), u = I(n, r);
+async function ke({ card: e, photos: t, hook: n, script: r, voice: i, music: a, logo: o, payments: s, onProgress: c }) {
+	let l = $(c), u = F(n, r);
 	c?.("Recording the voiceover…", null);
-	let d = await pe()({
+	let d = await Q()({
 		text: u,
 		voice: i,
 		speed: 1
@@ -1439,20 +1618,20 @@ async function $({ card: e, photos: t, hook: n, script: r, voice: i, music: a, l
 		rate: d.rate,
 		text: u
 	}, p = f.samples.length / f.rate + 2.6, m = null;
-	(a === "auto" || a === "quiet") && (c?.("Writing the music…", null), m = await z(p, f.rate));
-	let h = B(f, m, a === "quiet" ? .22 : .45), g = se({
+	(a === "auto" || a === "quiet") && (c?.("Writing the music…", null), m = await L(p, f.rate));
+	let h = R(f, m, a === "quiet" ? .22 : .45), g = be({
 		hook: n,
-		cues: V(u, f),
+		cues: z(u, f),
 		price: e.priceLabel,
 		title: e.title,
 		host: new URL(e.url).host,
 		seconds: p,
 		logo: o ? await createImageBitmap(o) : null,
 		payments: s
-	}), _ = [...ge].sort(() => Math.random() - .5), v = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], y = [];
+	}), _ = [...Oe].sort(() => Math.random() - .5), v = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], y = [];
 	for (let [e, t] of v.entries()) c?.(`Reading the depth of photo ${e + 1} of ${v.length}…`, null), y.push({
 		image: await createImageBitmap(t),
-		depth: await Q()({
+		depth: await Z()({
 			op: "depth",
 			blob: t
 		}, l),
@@ -1465,8 +1644,8 @@ async function $({ card: e, photos: t, hook: n, script: r, voice: i, music: a, l
 		seconds: p
 	};
 }
-async function _e({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
-	let { track: f, overlay: p, shots: m, seconds: h } = await $({
+async function Ae({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
+	let { track: f, overlay: p, shots: m, seconds: h } = await ke({
 		card: e,
 		photos: t,
 		hook: n,
@@ -1482,7 +1661,7 @@ async function _e({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 		intensity: 1,
 		grain: .03,
 		onFrame: p
-	}, h, f, (e) => u?.("Recording — keep this tab open", e)), v = F(e, n, { trendTerms: d });
+	}, h, f, (e) => u?.("Recording — keep this tab open", e)), v = P(e, n, { trendTerms: d });
 	return {
 		video: _,
 		caption: v.caption,
@@ -1492,8 +1671,66 @@ async function _e({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 		seconds: h
 	};
 }
-async function ve({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, sink: u, fps: d = 24, onProgress: f, trendTerms: p = [] }) {
-	let { track: m, overlay: h, shots: g, seconds: _ } = await $({
+async function je({ items: e, copyItems: t, hook: n, script: r, title: i, linkUrl: a, voice: s = "bf_emma", music: c = "auto", canvas: l, sink: u, fps: d = 24, onProgress: f, photosPerItem: p = 2 }) {
+	let m = $(f), h = F(n, r);
+	f?.("Recording the voiceover…", null);
+	let g = await Q()({
+		text: h,
+		voice: s,
+		speed: 1
+	}, m), _ = {
+		samples: g.samples,
+		rate: g.rate,
+		text: h
+	}, v = _.samples.length / _.rate, y = v + 2.8, b = null;
+	(c === "auto" || c === "quiet") && (f?.("Writing the music…", null), b = await L(y, _.rate));
+	let x = R(_, b, c === "quiet" ? .22 : .45), S = t.map((e, n) => {
+		let r = e.intro ? h.indexOf(e.intro) : -1;
+		return r > 0 ? Math.max(0, r / h.length * v - .25) : n / t.length * v;
+	});
+	S[0] = 0;
+	let C = [...Oe].sort(() => Math.random() - .5), w = [], T = [], E = [];
+	for (let [t, n] of e.entries()) {
+		let r = [n.photos[0], ...n.photos.slice(1).sort(() => Math.random() - .5)].filter(Boolean).slice(0, p), i = S[t], a = t + 1 < e.length ? S[t + 1] : y;
+		for (let [n, o] of r.entries()) f?.(`Reading the depth of product ${t + 1} of ${e.length}…`, null), w.push({
+			image: await createImageBitmap(o),
+			depth: await Z()({
+				op: "depth",
+				blob: o
+			}, m),
+			motion: C[w.length % C.length]
+		}), T.push(t), E.push(i + (a - i) * n / r.length);
+	}
+	let D = xe({
+		hook: n,
+		cues: z(h, _),
+		items: t,
+		shotItem: T,
+		host: new URL(a).host,
+		seconds: y,
+		title: i
+	}), O = new o(l);
+	O.setFrame("vertical", null);
+	let k = await O.renderFrames(w, {
+		intensity: 1,
+		grain: .03,
+		onFrame: D,
+		shotStarts: E
+	}, y, x, u, {
+		fps: d,
+		onTick: (e) => f?.("Drawing frames", e)
+	});
+	return {
+		audio: J(x.samples, x.rate),
+		fps: k.fps,
+		frames: k.frames,
+		hook: n,
+		script: r,
+		seconds: k.seconds
+	};
+}
+async function Me({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, sink: u, fps: d = 24, onProgress: f, trendTerms: p = [] }) {
+	let { track: m, overlay: h, shots: g, seconds: _ } = await ke({
 		card: e,
 		photos: t,
 		hook: n,
@@ -1512,9 +1749,9 @@ async function ve({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 	}, _, m, u, {
 		fps: d,
 		onTick: (e) => f?.("Drawing frames", e)
-	}), b = F(e, n, { trendTerms: p });
+	}), b = P(e, n, { trendTerms: p });
 	return {
-		audio: ce(m.samples, m.rate),
+		audio: J(m.samples, m.rate),
 		fps: y.fps,
 		frames: y.frames,
 		caption: b.caption,
@@ -1525,4 +1762,4 @@ async function ve({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 	};
 }
 //#endregion
-export { n as VOICES, P as adReadiness, M as hookFor, he as loadProduct, _e as makeReel, ve as makeReelFrames, F as productPost, N as productScript, A as sayable };
+export { N as BRAND_FACTS, n as VOICES, ge as adReadiness, he as brandCopy, fe as brandPost, le as collectionCopy, de as collectionPost, ne as hookFor, De as loadProduct, je as makeCollectionFrames, Ae as makeReel, Me as makeReelFrames, P as productPost, se as productScript, j as sayable };
