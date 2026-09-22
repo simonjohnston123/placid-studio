@@ -225,6 +225,16 @@ const RULES = [
   { tag: 'people', score: 4, re: /\b(\d)\s*(?:-|–|to)\s*(\d)\s*(?:person|people)\b/i, say: m => `It fits ${w(m[1])} to ${w(m[2])} people.` },
   { tag: 'load', score: 3, re: /\b(?:hold|holds|support|supports|load[- ]bearing|weight capacity)[^.]*?(\d{2,3})\s*kg\b/i, say: m => `It holds up to ${m[1]} kilos.` },
   { tag: 'foam', score: 3, re: /\bmemory foam\b/i, say: () => "There's memory foam in there for extra comfort." },
+  // Fitness gear: the claims live inside long catalogue sentences, not bullets.
+  { tag: 'incline', score: 7, re: /\b(automatic|auto|power(ed)?|motori[sz]ed)\s+incline\b/i, say: () => "It's got automatic incline, so you can step up the workout without stopping." },
+  { tag: 'cushion', score: 6, re: /\b(cushion(ed|ing)?|shock\s?(control|absorb\w*))\b[^.]*\b(belt|deck|running)\b|\b(belt|deck)\b[^.]*\bcushion/i,
+    say: (m, x) => (/joint/i.test(m.input || '') ? "The running belt's cushioned, so it's easier on your joints." : "The running belt's cushioned for a more comfortable run.") },
+  { tag: 'programs', score: 5, re: /\bprograms?\s+1\s+to\s+(\d+)\b|\b(\d+)\s+(?:preset\s+|built[- ]in\s+|workout\s+)*(?:workout\s+)?programs\b/i,
+    say: m => `There are ${w(m[1] || m[2])} workout programs built in.` },
+  { tag: 'apps', score: 5, re: /\b(zwift|kinomap|app compatib\w*|compatible with[^.]*app)/i,
+    say: (m) => { const apps = [...new Set(((m.input || '').match(/\b(Zwift|Kinomap|FitShow|Kinomap|iFit)\b/gi) || []).map(a => a[0].toUpperCase() + a.slice(1).toLowerCase()))];
+      return apps.length ? `It works with apps like ${apps.slice(0, 2).join(' and ')}.` : 'It works with fitness apps, too.'; } },
+  { tag: 'motor', score: 3, re: /\bbrushless\s+motor\b/i, say: () => 'It runs on a brushless motor for a smooth run.' },
   { tag: 'light', score: 3, re: /\blightweight\b/i, say: () => "It's nice and lightweight." },
   { tag: 'charge', score: 3, re: /\b(usb[- ]?(c\s+)?rechargeable|rechargeable)\b/i, say: () => "It's rechargeable, too." },
   { tag: 'motion', score: 3, re: /\bmotion sensor\b/i, say: () => "It's got a motion sensor, too." },
