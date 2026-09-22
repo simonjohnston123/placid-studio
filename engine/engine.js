@@ -254,6 +254,26 @@ var n = [
 		}), u.stop(), await f, s?.close(), new Blob(d, { type: l.split(";")[0] });
 	}
 };
+o.prototype.renderFrames = async function(e, t, n, r, i, { fps: a = 24, onTick: o } = {}) {
+	this.stop(), r && (n = Math.max(n, r.samples.length / r.rate + .6));
+	let s = n / e.length, c = Math.ceil(n * a), l = -1, u = (t) => {
+		t !== l && (l = t, this.load(e[t].image, e[t].depth));
+	};
+	for (let n = 0; n < c; n++) {
+		let r = n / a, l = Math.min(e.length - 1, Math.floor(r / s));
+		u(l);
+		let d = Math.min(1, (r - l * s) / s), f = e.length > 1 ? Math.min(1, (r - l * s) / .3) : 1;
+		this.draw(e[l].motion, d, {
+			...t,
+			alpha: f
+		}), t.onFrame?.(this.ctx, r, l), await i(this.out, n, c), o?.((n + 1) / c);
+	}
+	return {
+		seconds: n,
+		frames: c,
+		fps: a
+	};
+};
 function s(e, t, n) {
 	let r = String(t).split(/\s+/), i = [], a = "";
 	for (let t of r) {
@@ -954,49 +974,49 @@ function k(e, t) {
 		copy: n
 	};
 }
-var A = /\b(introducing|this product features|this product|here is the solution|here'?s the fix|the solution is|features include|boasts|comes equipped|is equipped with|ideal for|perfect for|high[- ]quality|premium|state[- ]of[- ]the[- ]art|meet the|sorted\.)\b/i;
-function j(e, t) {
+var ee = /\b(introducing|this product features|this product|here is the solution|here'?s the fix|the solution is|features include|boasts|comes equipped|is equipped with|ideal for|perfect for|high[- ]quality|premium|state[- ]of[- ]the[- ]art|meet the|sorted\.)\b/i;
+function A(e, t) {
 	let n = String(e || "").trim();
-	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || A.test(n) || E.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
+	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || ee.test(n) || E.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
 	if (t) {
 		let e = String(t.title).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean), r = n.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
 		for (let t = 0; t + 3 < e.length; t++) if (r.includes(e.slice(t, t + 4).join(" "))) return !1;
 	}
 	return !0;
 }
-function M(e, t, n) {
+function j(e, t, n) {
 	let r = t.noun, i = /\b(kids?|toddler|children)\b/i.test(e.title), a = t.family, o = [];
 	return a === "seat" ? (n.adjust && o.push("Need somewhere to kick back that you can actually adjust to suit you?"), (n.store || n.fold) && o.push("Need somewhere to kick back that doesn't take up half the room?"), i ? o.push("Want a comfy little spot that's just for the kids?", "Need somewhere comfy for the little ones to chill out?") : o.push("Need a comfy spot to put your feet up?", "Want a proper spot to kick back after a long day?")) : a === "cushion" ? o.push("Spend most of the day sitting down?", "Is your chair getting uncomfortable by the afternoon?") : a === "bed" ? o.push("Not sleeping as well as you'd like?", "Reckon it's time your bed got an upgrade?") : a === "clean" ? /vacuum/.test(r) ? (n.cordless && o.push("Still dragging the big vacuum out just to clean one little mess?", "Still wrestling with a vacuum cord?"), n.battery && o.push("Want a vacuum that won't give up halfway through the house?"), o.push("Sick of lugging a heavy vacuum around the house?")) : o.push("Want cleaning to be a bit less of a chore?", "Looking for an easier way to keep things clean?") : a === "outdoor" ? o.push("Heading to the beach this summer?", "Want a bit of proper shade when you head out?") : a === "garden" ? o.push("Want to give the garden a bit of life?", "Okay, this is actually pretty handy if you've got a backyard.") : a === "pet" ? o.push(/dog/i.test(e.title) ? "Want something a bit special for your dog?" : "Got a pet that deserves a treat?") : a === "kitchen" ? o.push(/timer/.test(r) ? "Always losing track of time in the kitchen?" : "Want one less thing to think about in the kitchen?") : a === "light" ? o.push(/head/.test(r) ? "Need both hands free when it gets dark?" : "Need a bit more light where it counts?") : a === "beauty" ? o.push("Doing your nails at home?", "Want salon-style nails without leaving the house?") : a === "jewellery" ? o.push("Looking for a little something special?", "After a gift that feels a bit different?") : a === "sport" && o.push("Getting serious about your training?", "Want gear that keeps up with you?"), t.known ? o.push(t.plural ? `Been after some new ${r}?` : `Been after a new ${r}?`, `Okay, this ${t.plural ? "is" : "one is"} actually pretty handy.`) : o.push("Found something pretty handy for around the home.", "Here's one worth a look."), o;
 }
-function N(e) {
-	let t = v(e), n = M(e, t, Object.fromEntries(k(e, t).list.map((e) => [e.tag, !0]))).filter((t) => j(t, e) && t.split(/\s+/).length <= 14);
+function M(e) {
+	let t = v(e), n = j(e, t, Object.fromEntries(k(e, t).list.map((e) => [e.tag, !0]))).filter((t) => A(t, e) && t.split(/\s+/).length <= 14);
 	return Math.random() < .7 ? n[0] : c(n);
 }
-var P = [
+var te = [
 	`There are a few options available, so check the full details at ${l}.`,
 	`Have a look at ${l} for the available options and full specifications.`,
 	`There's more than one option, so pick the right one at ${l}.`
-], F = [
+], ne = [
 	`Want to check the sizing and specs? You'll find everything on the product page at ${l}.`,
 	`Check ${l} to make sure the size and options are right for you.`,
 	`Check the sizing and full specs on the product page at ${l}.`
-], ee = [
+], re = [
 	`Want the full specs? They're all on the product page at ${l}.`,
 	`You'll find the full details and specs at ${l}.`,
 	`Check out the full details at ${l}.`,
 	`For all the details, have a look at ${l}.`
-], te = [
+], ie = [
 	`Check it out at ${l}.`,
 	`Grab yours at ${l}.`,
 	`Find it at ${l}.`,
 	`Have a look at ${l}.`
 ];
-function ne(e, { hook: t = null } = {}) {
+function N(e, { hook: t = null } = {}) {
 	let n = /* @__PURE__ */ new Set(), r = v(e), i = b(e, r), { list: a, copy: o } = k(e, r), s = c(r.known ? [
 		`Check out ${i}.`,
 		`Have a look at ${i}.`,
 		`Take a look at ${i}.`
-	] : ["Check this out.", "Have a look at this."], n), l = a.map((e) => e.text).filter((t) => j(t, e));
+	] : ["Check this out.", "Have a look at this."], n), l = a.map((e) => e.text).filter((t) => A(t, e));
 	l.length > 1 && (l = l.filter((e, t) => t < 2 || !/^It's got /.test(e)));
 	let u = (e) => new Set((e.toLowerCase().match(/[a-z]{5,}/g) || []).filter((e) => ![
 		"there",
@@ -1009,21 +1029,21 @@ function ne(e, { hook: t = null } = {}) {
 		`This one's ${p(e.priceCents)}.`,
 		`It's ${p(e.priceCents)}.`,
 		`You can grab it for ${p(e.priceCents)}.`
-	], n) : null, m = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? F : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? P : ee, n) : null) || c(te, n), _ = [
+	], n) : null, m = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? ne : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? te : re, n) : null) || c(ie, n), _ = [
 		s,
 		...l,
 		f,
 		m,
 		g
-	].filter(Boolean).filter((t) => j(t, e) || t === g), y = new Set(String(t || "").toLowerCase().match(/[a-z]{5,}/g) || []);
+	].filter(Boolean).filter((t) => A(t, e) || t === g), y = new Set(String(t || "").toLowerCase().match(/[a-z]{5,}/g) || []);
 	return _.filter((e, t) => {
 		if (t === 0 || e === g || e === f || e === m) return !0;
 		let n = e.toLowerCase().match(/[a-z]{5,}/g) || [];
 		return !n.length || !n.every((e) => y.has(e));
 	}).join(" ").replace(/\s{2,}/g, " ").trim();
 }
-function I(e) {
-	let t = v(e), { list: n } = k(e, t), r = n.filter((t) => j(t.text, e)), i = [];
+function P(e) {
+	let t = v(e), { list: n } = k(e, t), r = n.filter((t) => A(t.text, e)), i = [];
 	return t.known || i.push("can't tell what the product is from its title"), r.length < 2 && i.push(`only ${r.length} sayable benefit${r.length === 1 ? "" : "s"} in the product copy (need 2)`), e.priceCents || i.push("no current price"), {
 		ok: !i.length,
 		noun: t.noun,
@@ -1032,10 +1052,10 @@ function I(e) {
 		reasons: i
 	};
 }
-function L(e, t, { trendTerms: n = [] } = {}) {
+function F(e, t, { trendTerms: n = [] } = {}) {
 	let r = v(e), i = [
 		t,
-		k(e, r).list.map((e) => e.text).find((t) => j(t, e)) || null,
+		k(e, r).list.map((e) => e.text).find((t) => A(t, e)) || null,
 		e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? `${p(e.priceCents)} at ${l}` : `Have a look at ${l}`,
 		e.url
 	].filter(Boolean), a = (e) => `#${String(e).toLowerCase().replace(/[^a-z0-9]+/g, "")}`, o = new Set([...r.noun.split(/\s+/), r.noun.replace(/\s+/g, "")].filter((e) => e.length > 3 && e !== "find")), s = {
@@ -1065,17 +1085,17 @@ function L(e, t, { trendTerms: n = [] } = {}) {
 		hashtags: d
 	};
 }
-function R(e, t) {
+function I(e, t) {
 	let n = String(e || "").trim(), r = String(t || "").trim();
-	return z(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
+	return L(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
 }
-function z(e) {
+function L(e) {
 	return String(e || "").replace(/\bplaciddeals\.com\b/gi, "Placid Deals dot com").replace(/\s{2,}/g, " ").trim();
 }
 //#endregion
 //#region src/reel.js
-var B = "\"Segoe UI\", system-ui, -apple-system, Helvetica, sans-serif";
-async function V(e, t = 44100) {
+var R = "\"Segoe UI\", system-ui, -apple-system, Helvetica, sans-serif";
+async function z(e, t = 44100) {
 	let n = new OfflineAudioContext(1, Math.ceil(e * t), t), r = 60 / 104, i = Math.ceil(e / (r * 4)) + 1, a = [
 		[
 			220,
@@ -1120,7 +1140,7 @@ async function V(e, t = 44100) {
 	}
 	return (await n.startRendering()).getChannelData(0);
 }
-function H(e, t, n = .45) {
+function B(e, t, n = .45) {
 	let r = Math.max(e.samples.length, t ? t.length : 0), i = new Float32Array(r);
 	if (i.set(e.samples), t) for (let a = 0; a < r; a++) {
 		let r = Math.abs(e.samples[a] || 0);
@@ -1134,7 +1154,7 @@ function H(e, t, n = .45) {
 		rate: e.rate
 	};
 }
-function U(e, t) {
+function V(e, t) {
 	let { samples: n, rate: r } = t, i = n.length / r, a = Math.floor(r * .03), o = [];
 	for (let e = 0; e < n.length; e += a) {
 		let t = 0;
@@ -1144,7 +1164,7 @@ function U(e, t) {
 	let s = ([...o].sort((e, t) => e - t)[Math.floor(o.length * .95)] || 1) * .06, c = [], l = null;
 	o.forEach((e, t) => {
 		e < s ? l === null && (l = t) : (l !== null && (t - l) * .03 > .18 && c.push((l + t) / 2 * .03), l = null);
-	}), e = W(e);
+	}), e = H(e);
 	let u = e.replace(/\s+/g, " ").trim().split(/(?<=[.!?;:,])\s+/).flatMap((e) => {
 		let t = e.split(" ");
 		if (t.length <= 5) return [e];
@@ -1161,16 +1181,16 @@ function U(e, t) {
 		}), m = p[p.length - 1].t1;
 	}), p;
 }
-function W(e) {
+function H(e) {
 	return String(e || "").replace(/\bplacid\s+deals\s+dot\s+com\b/gi, "placiddeals.com").replace(/\b([a-z0-9-]+)\s+dot\s+(com|com\.au|net|org|co)\b/gi, (e, t, n) => `${t}.${n}`).replace(/\s{2,}/g, " ").trim();
 }
-function G(e, t, n, r, i, a) {
+function U(e, t, n, r, i, a) {
 	e.beginPath(), e.roundRect(t, n, r, i, a);
 }
-function K(e, t, n, r, i, a = 3) {
+function W(e, t, n, r, i, a = 3) {
 	let o = i;
 	for (; o > i * .55; o -= 2) {
-		e.font = `${r} ${o}px ${B}`;
+		e.font = `${r} ${o}px ${R}`;
 		let i = t.split(/\s+/), s = [], c = "";
 		for (let t of i) {
 			let r = c ? `${c} ${t}` : t;
@@ -1181,104 +1201,104 @@ function K(e, t, n, r, i, a = 3) {
 			lines: s
 		};
 	}
-	return e.font = `${r} ${o}px ${B}`, {
+	return e.font = `${r} ${o}px ${R}`, {
 		fs: o,
 		lines: [t]
 	};
 }
-function q(e, t, n, r, i) {
+function G(e, t, n, r, i) {
 	if (i <= 0) return;
 	e.save(), e.globalAlpha = i;
-	let a = t * .07, { fs: o, lines: s } = K(e, r.toUpperCase(), t - a * 2, 800, Math.round(t * .095), 3), c = o * 1.15, l = s.length * c + a * .8, u = n * .175;
-	e.fillStyle = "rgba(0,0,0,.55)", G(e, a * .5, u - a * .4, t - a, l, t * .035), e.fill(), e.textBaseline = "top", e.textAlign = "center", s.forEach((n, r) => {
+	let a = t * .07, { fs: o, lines: s } = W(e, r.toUpperCase(), t - a * 2, 800, Math.round(t * .095), 3), c = o * 1.15, l = s.length * c + a * .8, u = n * .175;
+	e.fillStyle = "rgba(0,0,0,.55)", U(e, a * .5, u - a * .4, t - a, l, t * .035), e.fill(), e.textBaseline = "top", e.textAlign = "center", s.forEach((n, r) => {
 		e.fillStyle = "#fff", e.strokeStyle = "rgba(0,0,0,.65)", e.lineWidth = o * .14, e.lineJoin = "round", e.strokeText(n, t / 2, u + r * c), e.fillText(n, t / 2, u + r * c);
 	}), e.restore();
 }
-function J(e, t, n, r) {
+function K(e, t, n, r) {
 	if (!r) return;
 	e.save();
-	let { fs: i, lines: a } = K(e, r, t - t * .08 * 2, 700, Math.round(t * .062), 2), o = i * 1.2, s = n * .7;
+	let { fs: i, lines: a } = W(e, r, t - t * .08 * 2, 700, Math.round(t * .062), 2), o = i * 1.2, s = n * .7;
 	e.textAlign = "center", e.textBaseline = "top";
 	for (let n of a) e.strokeStyle = "rgba(0,0,0,.8)", e.lineWidth = i * .18, e.lineJoin = "round", e.strokeText(n, t / 2, s), e.fillStyle = "#fff", e.fillText(n, t / 2, s), s += o;
 	e.restore();
 }
-var Y = {
+var q = {
 	deep: "#1E0733",
 	deep2: "#2C0B4E",
 	violet: "#8B5CF6",
 	light: "#A78BFA",
 	ink: "#ffffff"
 };
-function X(e, t, n, r) {
+function J(e, t, n, r) {
 	e.save(), e.translate(t, n);
 	let i = r / 64;
 	e.scale(i, i);
 	let a = e.createLinearGradient(0, 0, 64, 64);
-	a.addColorStop(0, Y.light), a.addColorStop(1, Y.violet), e.fillStyle = a, e.beginPath(), e.moveTo(14, 8), e.lineTo(34, 8), e.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2), e.lineTo(14, 56), e.closePath(), e.fill(), e.globalCompositeOperation = "destination-out", e.beginPath(), e.moveTo(26, 20), e.lineTo(34, 20), e.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2), e.lineTo(26, 44), e.closePath(), e.fill(), e.globalCompositeOperation = "source-over", e.fillStyle = a, e.beginPath(), e.moveTo(20, 46), e.lineTo(20, 26), e.lineTo(34, 12), e.lineTo(44, 22), e.lineTo(30, 36), e.lineTo(30, 46), e.closePath(), e.fill(), e.fillStyle = Y.deep, e.beginPath(), e.arc(35, 21, 2.6, 0, Math.PI * 2), e.fill(), e.restore();
+	a.addColorStop(0, q.light), a.addColorStop(1, q.violet), e.fillStyle = a, e.beginPath(), e.moveTo(14, 8), e.lineTo(34, 8), e.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2), e.lineTo(14, 56), e.closePath(), e.fill(), e.globalCompositeOperation = "destination-out", e.beginPath(), e.moveTo(26, 20), e.lineTo(34, 20), e.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2), e.lineTo(26, 44), e.closePath(), e.fill(), e.globalCompositeOperation = "source-over", e.fillStyle = a, e.beginPath(), e.moveTo(20, 46), e.lineTo(20, 26), e.lineTo(34, 12), e.lineTo(44, 22), e.lineTo(30, 36), e.lineTo(30, 46), e.closePath(), e.fill(), e.fillStyle = q.deep, e.beginPath(), e.arc(35, 21, 2.6, 0, Math.PI * 2), e.fill(), e.restore();
 }
-function re(e, t, n, r, i = !1) {
-	e.save(), e.textBaseline = "top", e.textAlign = i ? "center" : "left", e.font = `700 ${r}px ${B}`, e.fillStyle = Y.ink, e.letterSpacing = `${r * .16}px`, e.fillText("PLACID", t, n);
+function Y(e, t, n, r, i = !1) {
+	e.save(), e.textBaseline = "top", e.textAlign = i ? "center" : "left", e.font = `700 ${r}px ${R}`, e.fillStyle = q.ink, e.letterSpacing = `${r * .16}px`, e.fillText("PLACID", t, n);
 	let a = e.measureText("PLACID").width, o = n + r * 1.12;
-	e.font = `600 ${r * .6}px ${B}`, e.fillStyle = Y.light, e.letterSpacing = `${r * .26}px`, e.fillText("DEALS", t, o);
+	e.font = `600 ${r * .6}px ${R}`, e.fillStyle = q.light, e.letterSpacing = `${r * .26}px`, e.fillText("DEALS", t, o);
 	let s = e.measureText("DEALS").width;
 	e.letterSpacing = "0px";
 	let c = o + r * .3, l = r * .22, u = r * .5, d = i ? t - s / 2 : t;
-	return e.strokeStyle = Y.violet, e.lineWidth = Math.max(1, r * .06), e.beginPath(), e.moveTo(d - l - u, c), e.lineTo(d - l, c), e.moveTo(d + s + l, c), e.lineTo(d + s + l + u, c), e.stroke(), e.restore(), a;
+	return e.strokeStyle = q.violet, e.lineWidth = Math.max(1, r * .06), e.beginPath(), e.moveTo(d - l - u, c), e.lineTo(d - l, c), e.moveTo(d + s + l, c), e.lineTo(d + s + l + u, c), e.stroke(), e.restore(), a;
 }
-function ie(e, t, n, { logo: r, host: i, price: a }) {
+function ae(e, t, n, { logo: r, host: i, price: a }) {
 	let o = n * .105, s = n * .095;
 	e.save();
 	let c = e.createLinearGradient(0, 0, t, o);
-	c.addColorStop(0, Y.deep), c.addColorStop(1, Y.deep2), e.fillStyle = c, e.fillRect(0, 0, t, o), e.fillStyle = Y.deep, e.fillRect(0, n - s, t, s), e.strokeStyle = Y.violet, e.lineWidth = Math.max(2, t * .006), e.beginPath(), e.moveTo(0, o), e.lineTo(t, o), e.moveTo(0, n - s), e.lineTo(t, n - s), e.stroke(), e.strokeRect(e.lineWidth / 2, e.lineWidth / 2, t - e.lineWidth, n - e.lineWidth);
+	c.addColorStop(0, q.deep), c.addColorStop(1, q.deep2), e.fillStyle = c, e.fillRect(0, 0, t, o), e.fillStyle = q.deep, e.fillRect(0, n - s, t, s), e.strokeStyle = q.violet, e.lineWidth = Math.max(2, t * .006), e.beginPath(), e.moveTo(0, o), e.lineTo(t, o), e.moveTo(0, n - s), e.lineTo(t, n - s), e.stroke(), e.strokeRect(e.lineWidth / 2, e.lineWidth / 2, t - e.lineWidth, n - e.lineWidth);
 	let l = t * .05, u = o * .52;
 	if (r) {
 		let t = u * 1.25, n = t * (r.width / r.height);
 		e.drawImage(r, l, (o - t) / 2, n, t);
 	} else {
-		X(e, l, (o - u) / 2, u);
+		J(e, l, (o - u) / 2, u);
 		let t = u * .42;
-		e.save(), e.textBaseline = "middle", e.textAlign = "left", e.font = `700 ${t}px ${B}`, e.letterSpacing = `${t * .16}px`, e.fillStyle = Y.ink;
+		e.save(), e.textBaseline = "middle", e.textAlign = "left", e.font = `700 ${t}px ${R}`, e.letterSpacing = `${t * .16}px`, e.fillStyle = q.ink;
 		let n = l + u * 1.3;
 		e.fillText("PLACID", n, o / 2);
 		let r = e.measureText("PLACID").width + t * .5;
-		e.fillStyle = Y.light, e.fillText("DEALS", n + r, o / 2), e.letterSpacing = "0px", e.restore();
+		e.fillStyle = q.light, e.fillText("DEALS", n + r, o / 2), e.letterSpacing = "0px", e.restore();
 	}
 	if (a) {
 		let n = Math.round(t * .055);
-		e.font = `800 ${n}px ${B}`;
+		e.font = `800 ${n}px ${R}`;
 		let r = e.measureText(a).width + n * 1.1, i = n * 1.5, s = t - r - l, c = (o - i) / 2;
-		e.fillStyle = Y.violet, G(e, s, c, r, i, i / 2), e.fill(), e.fillStyle = Y.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(a, s + r / 2, c + i / 2 + 1);
+		e.fillStyle = q.violet, U(e, s, c, r, i, i / 2), e.fill(), e.fillStyle = q.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(a, s + r / 2, c + i / 2 + 1);
 	}
-	e.font = `700 ${Math.round(t * .045)}px ${B}`, e.fillStyle = Y.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(i, t / 2, n - s / 2), e.restore();
+	e.font = `700 ${Math.round(t * .045)}px ${R}`, e.fillStyle = q.ink, e.textAlign = "center", e.textBaseline = "middle", e.fillText(i, t / 2, n - s / 2), e.restore();
 }
-function ae(e, t, n, { title: r, host: i, price: a, logo: o, payments: s }, c) {
+function oe(e, t, n, { title: r, host: i, price: a, logo: o, payments: s }, c) {
 	if (c <= 0) return;
 	e.save(), e.globalAlpha = c, e.fillStyle = "rgba(30,7,51,.93)", e.fillRect(0, 0, t, n);
 	let l = t * .09;
 	e.textAlign = "center";
-	let u = K(e, r, t - l * 2, 800, Math.round(t * .085), 3);
+	let u = W(e, r, t - l * 2, 800, Math.round(t * .085), 3);
 	e.textBaseline = "top";
 	let d = n * .3;
-	if (e.fillStyle = "#fff", u.lines.forEach((n, r) => e.fillText(n, t / 2, d + r * u.fs * 1.15)), d += u.lines.length * u.fs * 1.15 + n * .02, a && (e.font = `800 ${Math.round(t * .11)}px ${B}`, e.fillStyle = Y.light, e.fillText(a, t / 2, d), d += t * .15), e.font = `700 ${Math.round(t * .058)}px ${B}`, e.fillStyle = "#fff", e.fillText(i, t / 2, d), d += t * .085, e.font = `600 ${Math.round(t * .042)}px ${B}`, e.fillStyle = "#9aa1ad", e.fillText("Link in bio", t / 2, d), s && (d += t * .075, e.font = `600 ${Math.round(t * .038)}px ${B}`, e.fillStyle = "#5eead4", e.fillText(s, t / 2, d)), o) {
+	if (e.fillStyle = "#fff", u.lines.forEach((n, r) => e.fillText(n, t / 2, d + r * u.fs * 1.15)), d += u.lines.length * u.fs * 1.15 + n * .02, a && (e.font = `800 ${Math.round(t * .11)}px ${R}`, e.fillStyle = q.light, e.fillText(a, t / 2, d), d += t * .15), e.font = `700 ${Math.round(t * .058)}px ${R}`, e.fillStyle = "#fff", e.fillText(i, t / 2, d), d += t * .085, e.font = `600 ${Math.round(t * .042)}px ${R}`, e.fillStyle = "#9aa1ad", e.fillText("Link in bio", t / 2, d), s && (d += t * .075, e.font = `600 ${Math.round(t * .038)}px ${R}`, e.fillStyle = "#5eead4", e.fillText(s, t / 2, d)), o) {
 		let r = t * .34, i = r * (o.height / o.width);
 		e.drawImage(o, (t - r) / 2, n * .12, r, i);
 	} else {
 		let r = t * .2;
-		X(e, (t - r) / 2, n * .09, r), re(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
+		J(e, (t - r) / 2, n * .09, r), Y(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
 	}
 	e.restore();
 }
-function oe({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
+function se({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
 	let c = Math.max(a - 2.2, a * .82);
 	return (a, l) => {
 		let u = a.canvas.width, d = a.canvas.height;
-		l < c && ie(a, u, d, {
+		l < c && ae(a, u, d, {
 			logo: o,
 			host: i,
 			price: n
-		}), q(a, u, d, e, l < 2 ? Math.min(1, l / .25) : Math.max(0, 1 - (l - 2) / .6));
+		}), G(a, u, d, e, l < 2 ? Math.min(1, l / .25) : Math.max(0, 1 - (l - 2) / .6));
 		let f = t.find((e) => l >= e.t0 && l < e.t1);
-		l > 2.4 && J(a, u, d, f?.text), ae(a, u, d, {
+		l > 2.4 && K(a, u, d, f?.text), oe(a, u, d, {
 			title: r,
 			host: i,
 			price: n,
@@ -1288,11 +1308,19 @@ function oe({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o
 	};
 }
 //#endregion
+//#region src/store.js
+function ce(e, t) {
+	let n = /* @__PURE__ */ new ArrayBuffer(44 + e.length * 2), r = new DataView(n), i = (e, t) => [...t].forEach((t, n) => r.setUint8(e + n, t.charCodeAt(0)));
+	i(0, "RIFF"), r.setUint32(4, 36 + e.length * 2, !0), i(8, "WAVE"), i(12, "fmt "), r.setUint32(16, 16, !0), r.setUint16(20, 1, !0), r.setUint16(22, 1, !0), r.setUint32(24, t, !0), r.setUint32(28, t * 2, !0), r.setUint16(32, 2, !0), r.setUint16(34, 16, !0), i(36, "data"), r.setUint32(40, e.length * 2, !0);
+	for (let t = 0; t < e.length; t++) r.setInt16(44 + t * 2, Math.max(-1, Math.min(1, e[t])) * 32767, !0);
+	return new Blob([n], { type: "audio/wav" });
+}
+//#endregion
 //#region src/gen.worker.js?worker&url
-var se = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, ce = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
+var le = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, ue = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
 //#endregion
 //#region src/engine.js
-function Z(e) {
+function X(e) {
 	let t = 0, n = /* @__PURE__ */ new Map();
 	return e.onmessage = ({ data: e }) => {
 		let t = n.get(e.id);
@@ -1313,13 +1341,13 @@ function Z(e) {
 		});
 	});
 }
-function Q(e) {
+function Z(e) {
 	if (e.origin === self.location.origin) return new Worker(e, { type: "module" });
 	let t = new Blob([`import ${JSON.stringify(e.href)};`], { type: "text/javascript" });
 	return new Worker(URL.createObjectURL(t), { type: "module" });
 }
-var le = null, $ = null, ue = () => le ??= Z(Q(new URL(se, import.meta.url))), de = () => $ ??= Z(Q(new URL(ce, import.meta.url)));
-function fe(e) {
+var de = null, fe = null, Q = () => de ??= X(Z(new URL(le, import.meta.url))), pe = () => fe ??= X(Z(new URL(ue, import.meta.url)));
+function me(e) {
 	let t = /* @__PURE__ */ new Map();
 	return (n) => {
 		if (n.type === "progress") {
@@ -1330,7 +1358,7 @@ function fe(e) {
 		} else n.type === "status" && (t.clear(), e?.(n.text, null));
 	};
 }
-async function pe(e, { base: t = null, onProgress: n } = {}) {
+async function he(e, { base: t = null, onProgress: n } = {}) {
 	let r;
 	try {
 		r = new URL(e);
@@ -1358,7 +1386,7 @@ async function pe(e, { base: t = null, onProgress: n } = {}) {
 		photos: s
 	};
 }
-var me = [
+var ge = [
 	"push",
 	"orbit",
 	"pan",
@@ -1366,52 +1394,102 @@ var me = [
 	"crane",
 	"drift"
 ];
-async function he({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
-	let f = fe(u), p = R(n, r);
-	u?.("Recording the voiceover…", null);
-	let m = await de()({
-		text: p,
+async function $({ card: e, photos: t, hook: n, script: r, voice: i, music: a, logo: o, payments: s, onProgress: c }) {
+	let l = me(c), u = I(n, r);
+	c?.("Recording the voiceover…", null);
+	let d = await pe()({
+		text: u,
 		voice: i,
 		speed: 1
-	}, f), h = {
-		samples: m.samples,
-		rate: m.rate,
-		text: p
-	}, g = h.samples.length / h.rate + 2.6, _ = null;
-	(a === "auto" || a === "quiet") && (u?.("Writing the music…", null), _ = await V(g, h.rate));
-	let v = H(h, _, a === "quiet" ? .22 : .45), y = oe({
+	}, l), f = {
+		samples: d.samples,
+		rate: d.rate,
+		text: u
+	}, p = f.samples.length / f.rate + 2.6, m = null;
+	(a === "auto" || a === "quiet") && (c?.("Writing the music…", null), m = await z(p, f.rate));
+	let h = B(f, m, a === "quiet" ? .22 : .45), g = se({
 		hook: n,
-		cues: U(p, h),
+		cues: V(u, f),
 		price: e.priceLabel,
 		title: e.title,
 		host: new URL(e.url).host,
-		seconds: g,
-		logo: s ? await createImageBitmap(s) : null,
-		payments: c
-	}), b = [...me].sort(() => Math.random() - .5), x = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], S = [];
-	for (let [e, n] of x.entries()) u?.(`Reading the depth of photo ${e + 1} of ${t.length}…`, null), S.push({
-		image: await createImageBitmap(n),
-		depth: await ue()({
+		seconds: p,
+		logo: o ? await createImageBitmap(o) : null,
+		payments: s
+	}), _ = [...ge].sort(() => Math.random() - .5), v = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], y = [];
+	for (let [e, t] of v.entries()) c?.(`Reading the depth of photo ${e + 1} of ${v.length}…`, null), y.push({
+		image: await createImageBitmap(t),
+		depth: await Q()({
 			op: "depth",
-			blob: n
-		}, f),
-		motion: b[e % b.length]
+			blob: t
+		}, l),
+		motion: _[e % _.length]
 	});
-	let C = new o(l);
-	C.setFrame("vertical", null);
-	let w = await C.record(S, {
-		intensity: 1,
-		grain: .03,
-		onFrame: y
-	}, g, v, (e) => u?.("Recording — keep this tab open", e)), T = L(e, n, { trendTerms: d });
 	return {
-		video: w,
-		caption: T.caption,
-		hashtags: T.hashtags,
+		track: h,
+		overlay: g,
+		shots: y,
+		seconds: p
+	};
+}
+async function _e({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
+	let { track: f, overlay: p, shots: m, seconds: h } = await $({
+		card: e,
+		photos: t,
 		hook: n,
 		script: r,
-		seconds: g
+		voice: i,
+		music: a,
+		logo: s,
+		payments: c,
+		onProgress: u
+	}), g = new o(l);
+	g.setFrame("vertical", null);
+	let _ = await g.record(m, {
+		intensity: 1,
+		grain: .03,
+		onFrame: p
+	}, h, f, (e) => u?.("Recording — keep this tab open", e)), v = F(e, n, { trendTerms: d });
+	return {
+		video: _,
+		caption: v.caption,
+		hashtags: v.hashtags,
+		hook: n,
+		script: r,
+		seconds: h
+	};
+}
+async function ve({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, sink: u, fps: d = 24, onProgress: f, trendTerms: p = [] }) {
+	let { track: m, overlay: h, shots: g, seconds: _ } = await $({
+		card: e,
+		photos: t,
+		hook: n,
+		script: r,
+		voice: i,
+		music: a,
+		logo: s,
+		payments: c,
+		onProgress: f
+	}), v = new o(l);
+	v.setFrame("vertical", null);
+	let y = await v.renderFrames(g, {
+		intensity: 1,
+		grain: .03,
+		onFrame: h
+	}, _, m, u, {
+		fps: d,
+		onTick: (e) => f?.("Drawing frames", e)
+	}), b = F(e, n, { trendTerms: p });
+	return {
+		audio: ce(m.samples, m.rate),
+		fps: y.fps,
+		frames: y.frames,
+		caption: b.caption,
+		hashtags: b.hashtags,
+		hook: n,
+		script: r,
+		seconds: y.seconds
 	};
 }
 //#endregion
-export { n as VOICES, I as adReadiness, N as hookFor, pe as loadProduct, he as makeReel, L as productPost, ne as productScript, j as sayable };
+export { n as VOICES, P as adReadiness, M as hookFor, he as loadProduct, _e as makeReel, ve as makeReelFrames, F as productPost, N as productScript, A as sayable };
