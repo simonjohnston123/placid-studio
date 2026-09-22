@@ -893,6 +893,39 @@ var C = (e) => {
 		say: () => "There's memory foam in there for extra comfort."
 	},
 	{
+		tag: "incline",
+		score: 7,
+		re: /\b(automatic|auto|power(ed)?|motori[sz]ed)\s+incline\b/i,
+		say: () => "It's got automatic incline, so you can step up the workout without stopping."
+	},
+	{
+		tag: "cushion",
+		score: 6,
+		re: /\b(cushion(ed|ing)?|shock\s?(control|absorb\w*))\b[^.]*\b(belt|deck|running)\b|\b(belt|deck)\b[^.]*\bcushion/i,
+		say: (e, t) => /joint/i.test(e.input || "") ? "The running belt's cushioned, so it's easier on your joints." : "The running belt's cushioned for a more comfortable run."
+	},
+	{
+		tag: "programs",
+		score: 5,
+		re: /\bprograms?\s+1\s+to\s+(\d+)\b|\b(\d+)\s+(?:preset\s+|built[- ]in\s+|workout\s+)*(?:workout\s+)?programs\b/i,
+		say: (e) => `There are ${d(e[1] || e[2])} workout programs built in.`
+	},
+	{
+		tag: "apps",
+		score: 5,
+		re: /\b(zwift|kinomap|app compatib\w*|compatible with[^.]*app)/i,
+		say: (e) => {
+			let t = [...new Set(((e.input || "").match(/\b(Zwift|Kinomap|FitShow|Kinomap|iFit)\b/gi) || []).map((e) => e[0].toUpperCase() + e.slice(1).toLowerCase()))];
+			return t.length ? `It works with apps like ${t.slice(0, 2).join(" and ")}.` : "It works with fitness apps, too.";
+		}
+	},
+	{
+		tag: "motor",
+		score: 3,
+		re: /\bbrushless\s+motor\b/i,
+		say: () => "It runs on a brushless motor for a smooth run."
+	},
+	{
 		tag: "light",
 		score: 3,
 		re: /\blightweight\b/i,
