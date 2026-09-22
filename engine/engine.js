@@ -644,8 +644,249 @@ var g = [
 		"heater",
 		"heater",
 		"home"
+	],
+	[
+		"bar fridge",
+		"bar fridge",
+		"kitchen"
+	],
+	[
+		"mini fridge",
+		"bar fridge",
+		"kitchen"
+	],
+	[
+		"wine fridge",
+		"wine fridge",
+		"kitchen"
+	],
+	[
+		"fridge",
+		"fridge",
+		"kitchen"
+	],
+	[
+		"freezer",
+		"freezer",
+		"kitchen"
+	],
+	[
+		"ice maker",
+		"ice maker",
+		"kitchen"
+	],
+	[
+		"cooktop",
+		"cooktop",
+		"kitchen"
+	],
+	[
+		"rangehood",
+		"rangehood",
+		"kitchen"
+	],
+	[
+		"coffee machine",
+		"coffee machine",
+		"kitchen"
+	],
+	[
+		"microwave",
+		"microwave",
+		"kitchen"
+	],
+	[
+		"dishwasher",
+		"dishwasher",
+		"kitchen"
+	],
+	[
+		"dining table",
+		"dining table",
+		"home"
+	],
+	[
+		"dining chairs",
+		"dining chairs",
+		"seat"
+	],
+	[
+		"bar stools",
+		"bar stools",
+		"seat"
+	],
+	[
+		"bar stool",
+		"bar stool",
+		"seat"
+	],
+	[
+		"massage chair",
+		"massage chair",
+		"seat"
+	],
+	[
+		"lounge setting",
+		"outdoor lounge setting",
+		"seat"
+	],
+	[
+		"outdoor sofa set",
+		"outdoor lounge setting",
+		"seat"
+	],
+	[
+		"dehumidifier",
+		"dehumidifier",
+		"home"
+	],
+	[
+		"air purifier",
+		"air purifier",
+		"home"
+	],
+	[
+		"humidifier",
+		"humidifier",
+		"home"
+	],
+	[
+		"air conditioner",
+		"air conditioner",
+		"home"
+	],
+	[
+		"wardrobe",
+		"wardrobe",
+		"home"
+	],
+	[
+		"bookshelf",
+		"bookshelf",
+		"home"
+	],
+	[
+		"tv unit",
+		"TV unit",
+		"home"
+	],
+	[
+		"air compressor",
+		"air compressor",
+		"tools"
+	],
+	[
+		"pressure pump",
+		"pressure pump",
+		"tools"
+	],
+	[
+		"generator",
+		"generator",
+		"tools"
+	],
+	[
+		"tool box",
+		"tool box",
+		"tools"
+	],
+	[
+		"exercise bike",
+		"exercise bike",
+		"sport"
+	],
+	[
+		"walking pad",
+		"walking pad",
+		"sport"
+	],
+	[
+		"rowing machine",
+		"rowing machine",
+		"sport"
+	],
+	[
+		"weight bench",
+		"weight bench",
+		"sport"
+	],
+	[
+		"dog kennel",
+		"dog kennel",
+		"pet"
+	],
+	[
+		"kennel",
+		"kennel",
+		"pet"
+	],
+	[
+		"cat litter box",
+		"litter box",
+		"pet"
+	],
+	[
+		"litter box",
+		"litter box",
+		"pet"
+	],
+	[
+		"ride on car",
+		"ride-on car",
+		"kids"
+	],
+	[
+		"kids ride on",
+		"ride-on",
+		"kids"
+	],
+	[
+		"trampoline",
+		"trampoline",
+		"kids"
+	],
+	[
+		"cubby house",
+		"cubby house",
+		"kids"
+	],
+	[
+		"bluetooth speaker",
+		"bluetooth speaker",
+		"home"
+	],
+	[
+		"speaker",
+		"speaker",
+		"home"
+	],
+	[
+		"paper shredder",
+		"paper shredder",
+		"home"
+	],
+	[
+		"shredder",
+		"paper shredder",
+		"home"
 	]
 ], _ = [
+	[
+		/ air conditioner /,
+		"air conditioner",
+		"home"
+	],
+	[
+		/ dual fuel cooker /,
+		"dual fuel cooker",
+		"kitchen"
+	],
+	[
+		/ dehumidifier /,
+		"dehumidifier",
+		"home"
+	]
+], v = [
 	"Artiss",
 	"Devanti",
 	"Keezi",
@@ -669,11 +910,11 @@ var g = [
 	"Rovar",
 	"Jingle Jollys"
 ];
-function v(e) {
+function y(e) {
 	return String(e || "").split(/\s[|–—-]\s|[|,(]|\s(?:with|for|featuring|including|suitable)\s/i)[0].trim();
 }
-function y(e) {
-	let t = ` ${v(e.title).toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `, n = null;
+function b(e) {
+	let t = ` ${y(e.title).toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `, n = null;
 	for (let [e, r, i] of g) {
 		let a = [...t.matchAll(RegExp(` ${e.replace(/ /g, " ")}s? `, "g"))].pop(), o = a ? a.index : -1;
 		o >= 0 && (!n || o + e.length > n.end || o + e.length === n.end && e.length > n.len) && (n = {
@@ -683,9 +924,16 @@ function y(e) {
 			len: e.length
 		});
 	}
-	return n && n.say === "sofa bed" && t.includes(" floor lounge ") && (n = {
+	n && n.say === "sofa bed" && t.includes(" floor lounge ") && (n = {
 		...n,
 		say: "floor lounge"
+	});
+	let r = _.find(([e]) => e.test(t));
+	return r && (n = {
+		say: r[1],
+		family: r[2],
+		end: 0,
+		len: 0
 	}), n ? {
 		noun: n.say,
 		family: n.family,
@@ -698,24 +946,24 @@ function y(e) {
 		known: !1
 	};
 }
-function b(e) {
+function x(e) {
 	if (e.brand && String(e.brand).length < 30) return String(e.brand);
 	let t = String(e.title || "").trim().split(/\s+/)[0] || "";
-	return _.find((e) => e.toLowerCase() === t.toLowerCase()) || null;
+	return v.find((e) => e.toLowerCase() === t.toLowerCase()) || null;
 }
-function x(e, t) {
-	let n = String(e.title || ""), r = [], i = b(e);
+function S(e, t) {
+	let n = String(e.title || ""), r = [], i = x(e);
 	i && r.push(i);
 	let a = n.match(/\b(\d)[\s-]?seat(?:er)?\b/i);
 	return a && t.family === "seat" && r.push(`${d(a[1])}-seater`), /\b(kids?|toddler|children'?s?)\b/i.test(n) && !/kid/.test(t.noun) && r.push("kids'"), r.push(t.noun === "one" ? "find" : t.noun), `${t.plural ? "these" : "this"} ${r.join(" ")}`;
 }
-var S = {
+var C = {
 	features: /^(key\s+)?features?\s*:?$|^highlights?\s*:?$|^this item stands out for the following characteristics\s*:?$/i,
 	specs: /^(specifications?|specs|dimensions?|technical (details|specifications))\s*:?$/i,
 	pack: /^(package|packaging)\s+(content|contents|includes?)\s*:?$|^in the box\s*:?$|^what'?s included\s*:?$/i,
 	skip: /^(description|note|notes|warranty|shipping|delivery)\s*:?$/i
 };
-function C(e) {
+function w(e) {
 	let t = String(e.description || "").split(/\n+/).map((e) => e.trim()).filter(Boolean);
 	String(e.description || "").length >= 1190 && t.pop();
 	let n = {
@@ -724,19 +972,19 @@ function C(e) {
 		hasSpecs: !1
 	}, r = "prose";
 	for (let e of t) {
-		if (S.features.test(e)) {
+		if (C.features.test(e)) {
 			r = "features";
 			continue;
 		}
-		if (S.specs.test(e)) {
+		if (C.specs.test(e)) {
 			r = "specs", n.hasSpecs = !0;
 			continue;
 		}
-		if (S.pack.test(e)) {
+		if (C.pack.test(e)) {
 			r = "pack";
 			continue;
 		}
-		if (S.skip.test(e)) {
+		if (C.skip.test(e)) {
 			/description/i.test(e) || (r = "skip");
 			continue;
 		}
@@ -745,10 +993,10 @@ function C(e) {
 	let i = `${e.title} ${e.description}`;
 	return n.hasOptions = n.hasSpecs || /\b\d+(\.\d+)?\s*(cm|mm|m)\s*(x|×)\s*\d/i.test(i) || /\b(sizes?|colou?rs?|variants?|options?)\s+(available|to choose)|available in\b|random colou?r/i.test(i) || (String(e.title).match(/\|/g) || []).length >= 2, n;
 }
-var w = (e) => {
+var T = (e) => {
 	let t = String(e).replace(/\s*(&|\band\b)\s*/gi, ",").split(/\s*,\s*/).map((e) => e.trim().toLowerCase()).filter(Boolean);
 	return t.length > 1 ? `${t.slice(0, -1).join(", ")} and ${t[t.length - 1]}` : t[0] || "";
-}, T = [
+}, E = [
 	{
 		tag: "adjust",
 		score: 8,
@@ -759,7 +1007,7 @@ var w = (e) => {
 		tag: "adjust",
 		score: 8,
 		re: /^adjustable\s+(.+?)(\s+sections?)?\.?$/i,
-		say: (e, t) => `You can adjust the ${w(e[1])}${e[2] ? " sections" : ""}${t.family === "seat" ? ", so it works for sitting back, lounging or stretching right out" : ""}.`
+		say: (e, t) => `You can adjust the ${T(e[1])}${e[2] ? " sections" : ""}${t.family === "seat" ? ", so it works for sitting back, lounging or stretching right out" : ""}.`
 	},
 	{
 		tag: "store",
@@ -950,11 +1198,11 @@ var w = (e) => {
 		re: /\bmagnetic\s+(base|back|mount)\b/i,
 		say: (e) => `It's got a magnetic ${e[1].toLowerCase()}.`
 	}
-], E = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, D = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
-function O(e, t, n = !0) {
+], D = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, O = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
+function k(e, t, n = !0) {
 	let r = h(String(e).replace(/[✀-➿←-⇿⬀-⯿️•▪●★✔✅❌]/g, "").replace(/\s+/g, " ").trim());
 	if (!r) return null;
-	for (let e of T) {
+	for (let e of E) {
 		if (e.tag === "fold" && ![
 			"seat",
 			"bed",
@@ -968,7 +1216,7 @@ function O(e, t, n = !0) {
 			score: e.score
 		};
 	}
-	if (!n || E.test(r) || D.test(r)) return null;
+	if (!n || D.test(r) || O.test(r)) return null;
 	let i = r.replace(/[.!]$/, "").split(/\s+/);
 	if (i.length >= 2 && i.length <= 5 && !/\d/.test(r) && !/^(it|this|the|you|and|or|for|to)\b/i.test(r)) {
 		let e = p(r.replace(/[.!]$/, ""));
@@ -980,73 +1228,73 @@ function O(e, t, n = !0) {
 	}
 	return null;
 }
-function k(e, t, n) {
+function ee(e, t, n) {
 	let r = h(String(e).trim());
-	if (!r || D.test(r) || E.test(r) || /\?$/.test(r)) return null;
+	if (!r || O.test(r) || D.test(r) || /\?$/.test(r)) return null;
 	let i = r.split(/\s+/);
 	if (i.length < 5 || i.length > 14 || (r.match(/,/g) || []).length > 1) return null;
 	let a = String(t.title).toLowerCase().split(/\s+/), o = r.toLowerCase();
 	for (let e = 0; e + 2 < a.length; e++) if (o.includes(a.slice(e, e + 3).join(" "))) return null;
-	return b(t) && o.includes(b(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
+	return x(t) && o.includes(x(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
 		text: /[.!?]$/.test(r) ? r : `${r}.`,
 		tag: `prose:${i[0].toLowerCase()}`,
 		score: 2
 	});
 }
 function A(e, t) {
-	let n = C(e), r = [], i = /* @__PURE__ */ new Set(), a = (e) => {
+	let n = w(e), r = [], i = /* @__PURE__ */ new Set(), a = (e) => {
 		e && !i.has(e.tag) && !r.some((t) => t.text === e.text) && (i.add(e.tag), r.push(e));
 	};
-	for (let e of n.bullets) a(O(e, t));
+	for (let e of n.bullets) a(k(e, t));
 	for (let e of n.prose) {
-		let n = O(e, t, !1);
+		let n = k(e, t, !1);
 		n && n.score > 1 && a(n);
 	}
-	if (r.filter((e) => e.score > 1).length < 2) for (let r of n.prose) a(k(r, e, t));
+	if (r.filter((e) => e.score > 1).length < 2) for (let r of n.prose) a(ee(r, e, t));
 	return {
 		list: r.sort((e, t) => t.score - e.score).slice(0, 4),
 		copy: n
 	};
 }
-var ee = /\b(introducing|this product features|this product|here is the solution|here'?s the fix|the solution is|features include|boasts|comes equipped|is equipped with|ideal for|perfect for|high[- ]quality|premium|state[- ]of[- ]the[- ]art|meet the|sorted\.)\b/i;
+var te = /\b(introducing|this product features|this product|here is the solution|here'?s the fix|the solution is|features include|boasts|comes equipped|is equipped with|ideal for|perfect for|high[- ]quality|premium|state[- ]of[- ]the[- ]art|meet the|sorted\.)\b/i;
 function j(e, t) {
 	let n = String(e || "").trim();
-	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || ee.test(n) || D.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
+	if (!n || n.split(/\s+/).length > 22 || /[:;|()[\]{}\/\\#*_=<>]/.test(n) || /\d+\s*(x|×)\s*\d+/i.test(n) || (n.match(/\d+(\.\d+)?/g) || []).length > 2 || te.test(n) || O.test(n) || /\b(\w+)\s+\1\b/i.test(n) || /\b[A-Z]{2,}\b/.test(n.replace(/\b(UPF|LED|USB|UV|TV|HD|4K|BBQ)\b/g, ""))) return !1;
 	if (t) {
 		let e = String(t.title).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean), r = n.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
 		for (let t = 0; t + 3 < e.length; t++) if (r.includes(e.slice(t, t + 4).join(" "))) return !1;
 	}
 	return !0;
 }
-function te(e, t, n) {
+function ne(e, t, n) {
 	let r = t.noun, i = /\b(kids?|toddler|children)\b/i.test(e.title), a = t.family, o = [];
-	return a === "seat" ? (n.adjust && o.push("Need somewhere to kick back that you can actually adjust to suit you?"), (n.store || n.fold) && o.push("Need somewhere to kick back that doesn't take up half the room?"), i ? o.push("Want a comfy little spot that's just for the kids?", "Need somewhere comfy for the little ones to chill out?") : o.push("Need a comfy spot to put your feet up?", "Want a proper spot to kick back after a long day?")) : a === "cushion" ? o.push("Spend most of the day sitting down?", "Is your chair getting uncomfortable by the afternoon?") : a === "bed" ? o.push("Not sleeping as well as you'd like?", "Reckon it's time your bed got an upgrade?") : a === "clean" ? /vacuum/.test(r) ? (n.cordless && o.push("Still dragging the big vacuum out just to clean one little mess?", "Still wrestling with a vacuum cord?"), n.battery && o.push("Want a vacuum that won't give up halfway through the house?"), o.push("Sick of lugging a heavy vacuum around the house?")) : o.push("Want cleaning to be a bit less of a chore?", "Looking for an easier way to keep things clean?") : a === "outdoor" ? o.push("Heading to the beach this summer?", "Want a bit of proper shade when you head out?") : a === "garden" ? o.push("Want to give the garden a bit of life?", "Okay, this is actually pretty handy if you've got a backyard.") : a === "pet" ? o.push(/dog/i.test(e.title) ? "Want something a bit special for your dog?" : "Got a pet that deserves a treat?") : a === "kitchen" ? o.push(/timer/.test(r) ? "Always losing track of time in the kitchen?" : "Want one less thing to think about in the kitchen?") : a === "light" ? o.push(/head/.test(r) ? "Need both hands free when it gets dark?" : "Need a bit more light where it counts?") : a === "beauty" ? o.push("Doing your nails at home?", "Want salon-style nails without leaving the house?") : a === "jewellery" ? o.push("Looking for a little something special?", "After a gift that feels a bit different?") : a === "sport" && o.push("Getting serious about your training?", "Want gear that keeps up with you?"), t.known ? o.push(t.plural ? `Been after some new ${r}?` : `Been after a new ${r}?`, `Okay, this ${t.plural ? "is" : "one is"} actually pretty handy.`) : o.push("Found something pretty handy for around the home.", "Here's one worth a look."), o;
+	return a === "seat" ? (n.adjust && o.push("Need somewhere to kick back that you can actually adjust to suit you?"), (n.store || n.fold) && o.push("Need somewhere to kick back that doesn't take up half the room?"), i ? o.push("Want a comfy little spot that's just for the kids?", "Need somewhere comfy for the little ones to chill out?") : o.push("Need a comfy spot to put your feet up?", "Want a proper spot to kick back after a long day?")) : a === "cushion" ? o.push("Spend most of the day sitting down?", "Is your chair getting uncomfortable by the afternoon?") : a === "bed" ? o.push("Not sleeping as well as you'd like?", "Reckon it's time your bed got an upgrade?") : a === "clean" ? /vacuum/.test(r) ? (n.cordless && o.push("Still dragging the big vacuum out just to clean one little mess?", "Still wrestling with a vacuum cord?"), n.battery && o.push("Want a vacuum that won't give up halfway through the house?"), o.push("Sick of lugging a heavy vacuum around the house?")) : o.push("Want cleaning to be a bit less of a chore?", "Looking for an easier way to keep things clean?") : a === "outdoor" ? o.push("Heading to the beach this summer?", "Want a bit of proper shade when you head out?") : a === "garden" ? o.push("Want to give the garden a bit of life?", "Okay, this is actually pretty handy if you've got a backyard.") : a === "pet" ? o.push(/dog/i.test(e.title) ? "Want something a bit special for your dog?" : "Got a pet that deserves a treat?") : a === "kitchen" ? (/bar fridge/.test(r) ? o.push("Sick of the main fridge being packed with drinks?", "Want cold drinks right where you actually sit?") : /wine fridge/.test(r) ? o.push("Running out of spots to keep the wine cold?") : /cooktop|cooker/.test(r) ? o.push("Is the old cooktop on its last legs?", "Kitchen getting a bit of a refresh?") : /ice maker/.test(r) && o.push("Always running out of ice?"), o.push(/timer/.test(r) ? "Always losing track of time in the kitchen?" : "Want one less thing to think about in the kitchen?")) : a === "home" && /dehumidifier/.test(r) ? o.push("Is the house feeling a bit damp lately?", "Clothes taking forever to dry inside?") : a === "home" && /air conditioner/.test(r) ? o.push("Room getting too hot to sleep?", "Need to cool down a room without a split system?") : a === "tools" ? o.push(/compressor/.test(r) ? "Still pumping tyres up with a hand pump?" : "Always got a job on around the house?", "Handy on the tools on the weekend?") : a === "kids" ? o.push("Want something that gets the kids outside?", "After a gift the kids will actually use?") : a === "light" ? o.push(/head/.test(r) ? "Need both hands free when it gets dark?" : "Need a bit more light where it counts?") : a === "beauty" ? o.push("Doing your nails at home?", "Want salon-style nails without leaving the house?") : a === "jewellery" ? o.push("Looking for a little something special?", "After a gift that feels a bit different?") : a === "sport" && o.push("Getting serious about your training?", "Want gear that keeps up with you?"), t.known ? o.push(t.plural ? `Been after some new ${r}?` : `Been after a new ${r}?`, `Okay, this ${t.plural ? "is" : "one is"} actually pretty handy.`) : o.push("Found something pretty handy for around the home.", "Here's one worth a look."), o;
 }
-function ne(e) {
-	let t = y(e), n = te(e, t, Object.fromEntries(A(e, t).list.map((e) => [e.tag, !0]))).filter((t) => j(t, e) && t.split(/\s+/).length <= 14);
+function re(e) {
+	let t = b(e), n = ne(e, t, Object.fromEntries(A(e, t).list.map((e) => [e.tag, !0]))).filter((t) => j(t, e) && t.split(/\s+/).length <= 14);
 	return Math.random() < .7 ? n[0] : c(n);
 }
-var re = [
+var ie = [
 	`There are a few options available, so check the full details at ${l}.`,
 	`Have a look at ${l} for the available options and full specifications.`,
 	`There's more than one option, so pick the right one at ${l}.`
-], ie = [
+], ae = [
 	`Want to check the sizing and specs? You'll find everything on the product page at ${l}.`,
 	`Check ${l} to make sure the size and options are right for you.`,
 	`Check the sizing and full specs on the product page at ${l}.`
-], ae = [
+], oe = [
 	`Want the full specs? They're all on the product page at ${l}.`,
 	`You'll find the full details and specs at ${l}.`,
 	`Check out the full details at ${l}.`,
 	`For all the details, have a look at ${l}.`
-], oe = [
+], se = [
 	`Check it out at ${l}.`,
 	`Grab yours at ${l}.`,
 	`Find it at ${l}.`,
 	`Have a look at ${l}.`
 ];
-function se(e, { hook: t = null } = {}) {
-	let n = /* @__PURE__ */ new Set(), r = y(e), i = x(e, r), { list: a, copy: o } = A(e, r), s = c(r.known ? [
+function ce(e, { hook: t = null } = {}) {
+	let n = /* @__PURE__ */ new Set(), r = b(e), i = S(e, r), { list: a, copy: o } = A(e, r), s = c(r.known ? [
 		`Check out ${i}.`,
 		`Have a look at ${i}.`,
 		`Take a look at ${i}.`
@@ -1063,7 +1311,7 @@ function se(e, { hook: t = null } = {}) {
 		`This one's ${m(e.priceCents)}.`,
 		`It's ${m(e.priceCents)}.`,
 		`You can grab it for ${m(e.priceCents)}.`
-	], n) : null, p = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? ie : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? re : ae, n) : null) || c(oe, n), _ = [
+	], n) : null, p = typeof e.stockQuantity == "number" && e.stockQuantity > 0 && e.stockQuantity <= 5 ? `There are only ${d(e.stockQuantity)} left.` : null, h = `${e.title} ${e.description}`, g = (o.hasOptions ? c(/\b(sizes?|sizing|dimensions?)\b/i.test(h) ? ae : /\b(colou?rs? (available|to choose)|variants?|options? available|available in)\b/i.test(h) ? ie : oe, n) : null) || c(se, n), _ = [
 		s,
 		...l,
 		f,
@@ -1076,7 +1324,7 @@ function se(e, { hook: t = null } = {}) {
 		return !n.length || !n.every((e) => v.has(e));
 	}).join(" ").replace(/\s{2,}/g, " ").trim();
 }
-var ce = [
+var le = [
 	[
 		"First up,",
 		"Next,",
@@ -1096,22 +1344,22 @@ var ce = [
 		"Last one,"
 	]
 ], M = (e) => String(e || "").replace(/&/g, "and").replace(/\s+/g, " ").trim().toLowerCase();
-function le(e, { categoryName: t }) {
+function ue(e, { categoryName: t }) {
 	let n = /* @__PURE__ */ new Set(), r = e.filter((e) => {
-		let t = v(e.title).toLowerCase().split(/\s+/).slice(0, 5).join(" ");
+		let t = y(e.title).toLowerCase().split(/\s+/).slice(0, 5).join(" ");
 		return !n.has(t) && (n.add(t), !0);
 	}).slice(0, 4), i = /* @__PURE__ */ new Set(), a = /* @__PURE__ */ new Set(), o = r.length, s = M(t), u = c([
 		`Shopping for ${s}? Here are ${d(o)} worth a look.`,
 		`Need new ${s}? These ${d(o)} are worth a look.`,
 		`${f(d(o))} ${s} we'd pick this week.`,
 		`Looking at ${s}? Start with these ${d(o)}.`
-	], i), p = c(ce, i), h = [], g = [];
+	], i), p = c(le, i), h = [], g = [];
 	r.forEach((e, t) => {
-		let n = y(e), r = x(e, n).replace(/^(this|these) /, ""), i = A(e, n).list.map((e) => e.text).find((t) => j(t, e) && !a.has(t)) || null;
+		let n = b(e), r = S(e, n).replace(/^(this|these) /, ""), i = A(e, n).list.map((e) => e.text).find((t) => j(t, e) && !a.has(t)) || null;
 		i && a.add(i);
 		let o = e.priceCents ? m(e.priceCents) : null, s = p[Math.min(t, p.length - 1)];
 		g.push(`${s} this ${r}${o ? ` at ${o}` : ""}.`), i && g.push(i.replace(/,\s*(too|either)\.$/, ".")), h.push({
-			name: v(e.title).split(/\s+/).slice(0, 5).join(" "),
+			name: y(e.title).split(/\s+/).slice(0, 5).join(" "),
 			price: e.priceLabel || o,
 			benefit: i,
 			intro: g[g.length - (i ? 2 : 1)]
@@ -1129,8 +1377,8 @@ function le(e, { categoryName: t }) {
 		cards: r
 	};
 }
-var ue = (e) => `#${String(e).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "")}`;
-function de(e, { categoryName: t, linkUrl: n }) {
+var de = (e) => `#${String(e).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "")}`;
+function fe(e, { categoryName: t, linkUrl: n }) {
 	let r = [
 		e.hook,
 		...e.items.map((e) => `• ${e.name}${e.price ? ` — ${e.price}` : ""}`),
@@ -1139,7 +1387,7 @@ function de(e, { categoryName: t, linkUrl: n }) {
 	], i = [.../* @__PURE__ */ new Set([
 		"#placiddeals",
 		"#australia",
-		ue(t),
+		de(t),
 		"#homedecor",
 		"#homeinspo"
 	])].slice(0, 6);
@@ -1148,7 +1396,7 @@ function de(e, { categoryName: t, linkUrl: n }) {
 		hashtags: i
 	};
 }
-function fe(e, { linkUrl: t }) {
+function pe(e, { linkUrl: t }) {
 	let n = [
 		e.hook,
 		N.owned,
@@ -1175,7 +1423,7 @@ var N = {
 	payLater: "Afterpay and Zip are there at checkout.",
 	checked: "Stock and delivery get checked again before you pay, so there are no surprises.",
 	returns: "And if something's not right, there's a returns policy."
-}, pe = {
+}, me = {
 	"outdoor and camping": "camping gear",
 	"home and garden": "homewares",
 	"sports and fitness": "fitness gear",
@@ -1187,14 +1435,14 @@ var N = {
 	"party and occasions": "party supplies",
 	"gifts and novelty": "gifts",
 	"commercial and hospitality": "hospitality gear"
-}, me = (e) => pe[M(e)] || M(e);
-function he({ departments: e = [] } = {}) {
+}, he = (e) => me[M(e)] || M(e);
+function ge({ departments: e = [] } = {}) {
 	let t = /* @__PURE__ */ new Set(), n = c([
 		"Ever bought something online and got stung on delivery at the end?",
 		"Want the delivery cost before you get to the checkout?",
 		"Here's where to get everything for the home.",
 		"Heard of Placid Deals?"
-	], t), r = e.length >= 3 ? `There's ${e.slice(0, 3).map(me).join(", ").replace(/, ([^,]*)$/, " and $1")}, and plenty more.` : null, i = c([
+	], t), r = e.length >= 3 ? `There's ${e.slice(0, 3).map(he).join(", ").replace(/, ([^,]*)$/, " and $1")}, and plenty more.` : null, i = c([
 		[
 			N.delivery,
 			N.payLater,
@@ -1226,8 +1474,8 @@ function he({ departments: e = [] } = {}) {
 		].filter(Boolean).join(" ")
 	};
 }
-function ge(e) {
-	let t = y(e), { list: n } = A(e, t), r = n.filter((t) => j(t.text, e)), i = [];
+function _e(e) {
+	let t = b(e), { list: n } = A(e, t), r = n.filter((t) => j(t.text, e)), i = [];
 	return t.known || i.push("can't tell what the product is from its title"), r.length < 2 && i.push(`only ${r.length} sayable benefit${r.length === 1 ? "" : "s"} in the product copy (need 2)`), e.priceCents || i.push("no current price"), {
 		ok: !i.length,
 		noun: t.noun,
@@ -1237,7 +1485,7 @@ function ge(e) {
 	};
 }
 function P(e, t, { trendTerms: n = [] } = {}) {
-	let r = y(e), i = [
+	let r = b(e), i = [
 		t,
 		A(e, r).list.map((e) => e.text).find((t) => j(t, e)) || null,
 		e.priceCents && e.availability !== "out_of_stock" && e.availability !== "discontinued" ? `${m(e.priceCents)} at ${l}` : `Have a look at ${l}`,
@@ -1251,6 +1499,8 @@ function P(e, t, { trendTerms: n = [] } = {}) {
 		pet: ["dogsofinstagram", "pets"],
 		kitchen: ["kitchen", "kitchenhacks"],
 		light: ["camping", "outdoors"],
+		tools: ["diy", "tools"],
+		kids: ["kids", "parenting"],
 		beauty: ["nails", "beauty"],
 		jewellery: ["jewellery", "giftideas"],
 		sport: ["fitness"],
@@ -1271,9 +1521,9 @@ function P(e, t, { trendTerms: n = [] } = {}) {
 }
 function F(e, t) {
 	let n = String(e || "").trim(), r = String(t || "").trim();
-	return _e(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
+	return ve(!n || r.startsWith(n) ? r : `${n}${/[.!?]$/.test(n) ? "" : "."} ${r}`);
 }
-function _e(e) {
+function ve(e) {
 	return String(e || "").replace(/\bplaciddeals\.com\b/gi, "Placid Deals dot com").replace(/\s{2,}/g, " ").trim();
 }
 //#endregion
@@ -1348,7 +1598,7 @@ function z(e, t) {
 	let s = ([...o].sort((e, t) => e - t)[Math.floor(o.length * .95)] || 1) * .06, c = [], l = null;
 	o.forEach((e, t) => {
 		e < s ? l === null && (l = t) : (l !== null && (t - l) * .03 > .18 && c.push((l + t) / 2 * .03), l = null);
-	}), e = ve(e);
+	}), e = ye(e);
 	let u = e.replace(/\s+/g, " ").trim().split(/(?<=[.!?;:,])\s+/).flatMap((e) => {
 		let t = e.split(" ");
 		if (t.length <= 5) return [e];
@@ -1365,7 +1615,7 @@ function z(e, t) {
 		}), m = p[p.length - 1].t1;
 	}), p;
 }
-function ve(e) {
+function ye(e) {
 	return String(e || "").replace(/\bplacid\s+deals\s+dot\s+com\b/gi, "placiddeals.com").replace(/\b([a-z0-9-]+)\s+dot\s+(com|com\.au|net|org|co)\b/gi, (e, t, n) => `${t}.${n}`).replace(/\s{2,}/g, " ").trim();
 }
 function B(e, t, n, r, i, a) {
@@ -1420,7 +1670,7 @@ function G(e, t, n, r) {
 	let a = e.createLinearGradient(0, 0, 64, 64);
 	a.addColorStop(0, W.light), a.addColorStop(1, W.violet), e.fillStyle = a, e.beginPath(), e.moveTo(14, 8), e.lineTo(34, 8), e.arc(34, 32, 24, -Math.PI / 2, Math.PI / 2), e.lineTo(14, 56), e.closePath(), e.fill(), e.globalCompositeOperation = "destination-out", e.beginPath(), e.moveTo(26, 20), e.lineTo(34, 20), e.arc(34, 32, 12, -Math.PI / 2, Math.PI / 2), e.lineTo(26, 44), e.closePath(), e.fill(), e.globalCompositeOperation = "source-over", e.fillStyle = a, e.beginPath(), e.moveTo(20, 46), e.lineTo(20, 26), e.lineTo(34, 12), e.lineTo(44, 22), e.lineTo(30, 36), e.lineTo(30, 46), e.closePath(), e.fill(), e.fillStyle = W.deep, e.beginPath(), e.arc(35, 21, 2.6, 0, Math.PI * 2), e.fill(), e.restore();
 }
-function ye(e, t, n, r, i = !1) {
+function be(e, t, n, r, i = !1) {
 	e.save(), e.textBaseline = "top", e.textAlign = i ? "center" : "left", e.font = `700 ${r}px ${I}`, e.fillStyle = W.ink, e.letterSpacing = `${r * .16}px`, e.fillText("PLACID", t, n);
 	let a = e.measureText("PLACID").width, o = n + r * 1.12;
 	e.font = `600 ${r * .6}px ${I}`, e.fillStyle = W.light, e.letterSpacing = `${r * .26}px`, e.fillText("DEALS", t, o);
@@ -1468,11 +1718,11 @@ function q(e, t, n, { title: r, host: i, price: a, logo: o, payments: s }, c) {
 		e.drawImage(o, (t - r) / 2, n * .12, r, i);
 	} else {
 		let r = t * .2;
-		G(e, (t - r) / 2, n * .09, r), ye(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
+		G(e, (t - r) / 2, n * .09, r), be(e, t / 2, n * .09 + r * 1.25, t * .062, !0);
 	}
 	e.restore();
 }
-function be({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
+function xe({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o = null, payments: s = null }) {
 	let c = Math.max(a - 2.2, a * .82);
 	return (a, l) => {
 		let u = a.canvas.width, d = a.canvas.height;
@@ -1491,7 +1741,7 @@ function be({ hook: e, cues: t, price: n, title: r, host: i, seconds: a, logo: o
 		}, l > c ? Math.min(1, (l - c) / .5) : 0);
 	};
 }
-function xe({ hook: e, cues: t, items: n, shotItem: r, host: i, seconds: a, title: o, logo: s = null, payments: c = null }) {
+function Se({ hook: e, cues: t, items: n, shotItem: r, host: i, seconds: a, title: o, logo: s = null, payments: c = null }) {
 	let l = Math.max(a - 2.4, a * .84);
 	return (a, u, d) => {
 		let f = a.canvas.width, p = a.canvas.height, m = r[Math.min(d ?? 0, r.length - 1)] ?? 0, h = n[m] || {};
@@ -1499,7 +1749,7 @@ function xe({ hook: e, cues: t, items: n, shotItem: r, host: i, seconds: a, titl
 			logo: s,
 			host: i,
 			price: h.price || null
-		}), u > 2.4 && h.name && Se(a, f, p, n.length > 1 ? `${m + 1} of ${n.length} · ${h.name}` : h.name)), H(a, f, p, e, u < 2 ? Math.min(1, u / .25) : Math.max(0, 1 - (u - 2) / .6));
+		}), u > 2.4 && h.name && Ce(a, f, p, n.length > 1 ? `${m + 1} of ${n.length} · ${h.name}` : h.name)), H(a, f, p, e, u < 2 ? Math.min(1, u / .25) : Math.max(0, 1 - (u - 2) / .6));
 		let g = t.find((e) => u >= e.t0 && u < e.t1);
 		u > 2.4 && U(a, f, p, g?.text), q(a, f, p, {
 			title: o,
@@ -1510,7 +1760,7 @@ function xe({ hook: e, cues: t, items: n, shotItem: r, host: i, seconds: a, titl
 		}, u > l ? Math.min(1, (u - l) / .5) : 0);
 	};
 }
-function Se(e, t, n, r) {
+function Ce(e, t, n, r) {
 	e.save();
 	let i = Math.round(t * .04);
 	e.font = `700 ${i}px ${I}`;
@@ -1529,7 +1779,7 @@ function J(e, t) {
 }
 //#endregion
 //#region src/gen.worker.js?worker&url
-var Ce = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, we = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
+var we = new URL("assets/gen.worker-ptNQZks0.js", import.meta.url).href, Te = new URL("assets/tts.worker-DlZWSiBg.js", import.meta.url).href;
 //#endregion
 //#region src/engine.js
 function Y(e) {
@@ -1558,8 +1808,8 @@ function X(e) {
 	let t = new Blob([`import ${JSON.stringify(e.href)};`], { type: "text/javascript" });
 	return new Worker(URL.createObjectURL(t), { type: "module" });
 }
-var Te = null, Ee = null, Z = () => Te ??= Y(X(new URL(Ce, import.meta.url))), Q = () => Ee ??= Y(X(new URL(we, import.meta.url)));
-function $(e) {
+var Ee = null, De = null, Z = () => Ee ??= Y(X(new URL(we, import.meta.url))), Oe = () => De ??= Y(X(new URL(Te, import.meta.url)));
+function Q(e) {
 	let t = /* @__PURE__ */ new Map();
 	return (n) => {
 		if (n.type === "progress") {
@@ -1570,7 +1820,7 @@ function $(e) {
 		} else n.type === "status" && (t.clear(), e?.(n.text, null));
 	};
 }
-async function De(e, { base: t = null, onProgress: n } = {}) {
+async function ke(e, { base: t = null, onProgress: n } = {}) {
 	let r;
 	try {
 		r = new URL(e);
@@ -1598,7 +1848,7 @@ async function De(e, { base: t = null, onProgress: n } = {}) {
 		photos: s
 	};
 }
-var Oe = [
+var Ae = [
 	"push",
 	"orbit",
 	"pan",
@@ -1606,10 +1856,10 @@ var Oe = [
 	"crane",
 	"drift"
 ];
-async function ke({ card: e, photos: t, hook: n, script: r, voice: i, music: a, logo: o, payments: s, onProgress: c }) {
-	let l = $(c), u = F(n, r);
+async function $({ card: e, photos: t, hook: n, script: r, voice: i, music: a, logo: o, payments: s, onProgress: c }) {
+	let l = Q(c), u = F(n, r);
 	c?.("Recording the voiceover…", null);
-	let d = await Q()({
+	let d = await Oe()({
 		text: u,
 		voice: i,
 		speed: 1
@@ -1619,7 +1869,7 @@ async function ke({ card: e, photos: t, hook: n, script: r, voice: i, music: a, 
 		text: u
 	}, p = f.samples.length / f.rate + 2.6, m = null;
 	(a === "auto" || a === "quiet") && (c?.("Writing the music…", null), m = await L(p, f.rate));
-	let h = R(f, m, a === "quiet" ? .22 : .45), g = be({
+	let h = R(f, m, a === "quiet" ? .22 : .45), g = xe({
 		hook: n,
 		cues: z(u, f),
 		price: e.priceLabel,
@@ -1628,7 +1878,7 @@ async function ke({ card: e, photos: t, hook: n, script: r, voice: i, music: a, 
 		seconds: p,
 		logo: o ? await createImageBitmap(o) : null,
 		payments: s
-	}), _ = [...Oe].sort(() => Math.random() - .5), v = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], y = [];
+	}), _ = [...Ae].sort(() => Math.random() - .5), v = [t[0], ...t.slice(1).sort(() => Math.random() - .5)], y = [];
 	for (let [e, t] of v.entries()) c?.(`Reading the depth of photo ${e + 1} of ${v.length}…`, null), y.push({
 		image: await createImageBitmap(t),
 		depth: await Z()({
@@ -1644,8 +1894,8 @@ async function ke({ card: e, photos: t, hook: n, script: r, voice: i, music: a, 
 		seconds: p
 	};
 }
-async function Ae({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
-	let { track: f, overlay: p, shots: m, seconds: h } = await ke({
+async function je({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, onProgress: u, trendTerms: d = [] }) {
+	let { track: f, overlay: p, shots: m, seconds: h } = await $({
 		card: e,
 		photos: t,
 		hook: n,
@@ -1671,10 +1921,10 @@ async function Ae({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 		seconds: h
 	};
 }
-async function je({ items: e, copyItems: t, hook: n, script: r, title: i, linkUrl: a, voice: s = "bf_emma", music: c = "auto", canvas: l, sink: u, fps: d = 24, onProgress: f, photosPerItem: p = 2 }) {
-	let m = $(f), h = F(n, r);
+async function Me({ items: e, copyItems: t, hook: n, script: r, title: i, linkUrl: a, voice: s = "bf_emma", music: c = "auto", canvas: l, sink: u, fps: d = 24, onProgress: f, photosPerItem: p = 2 }) {
+	let m = Q(f), h = F(n, r);
 	f?.("Recording the voiceover…", null);
-	let g = await Q()({
+	let g = await Oe()({
 		text: h,
 		voice: s,
 		speed: 1
@@ -1689,7 +1939,7 @@ async function je({ items: e, copyItems: t, hook: n, script: r, title: i, linkUr
 		return r > 0 ? Math.max(0, r / h.length * v - .25) : n / t.length * v;
 	});
 	S[0] = 0;
-	let C = [...Oe].sort(() => Math.random() - .5), w = [], T = [], E = [];
+	let C = [...Ae].sort(() => Math.random() - .5), w = [], T = [], E = [];
 	for (let [t, n] of e.entries()) {
 		let r = [n.photos[0], ...n.photos.slice(1).sort(() => Math.random() - .5)].filter(Boolean).slice(0, p), i = S[t], a = t + 1 < e.length ? S[t + 1] : y;
 		for (let [n, o] of r.entries()) f?.(`Reading the depth of product ${t + 1} of ${e.length}…`, null), w.push({
@@ -1701,7 +1951,7 @@ async function je({ items: e, copyItems: t, hook: n, script: r, title: i, linkUr
 			motion: C[w.length % C.length]
 		}), T.push(t), E.push(i + (a - i) * n / r.length);
 	}
-	let D = xe({
+	let D = Se({
 		hook: n,
 		cues: z(h, _),
 		items: t,
@@ -1729,8 +1979,8 @@ async function je({ items: e, copyItems: t, hook: n, script: r, title: i, linkUr
 		seconds: k.seconds
 	};
 }
-async function Me({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, sink: u, fps: d = 24, onProgress: f, trendTerms: p = [] }) {
-	let { track: m, overlay: h, shots: g, seconds: _ } = await ke({
+async function Ne({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma", music: a = "auto", logo: s = null, payments: c = !0, canvas: l, sink: u, fps: d = 24, onProgress: f, trendTerms: p = [] }) {
+	let { track: m, overlay: h, shots: g, seconds: _ } = await $({
 		card: e,
 		photos: t,
 		hook: n,
@@ -1762,4 +2012,4 @@ async function Me({ card: e, photos: t, hook: n, script: r, voice: i = "bf_emma"
 	};
 }
 //#endregion
-export { N as BRAND_FACTS, n as VOICES, ge as adReadiness, he as brandCopy, fe as brandPost, le as collectionCopy, de as collectionPost, ne as hookFor, De as loadProduct, je as makeCollectionFrames, Ae as makeReel, Me as makeReelFrames, P as productPost, se as productScript, j as sayable };
+export { N as BRAND_FACTS, n as VOICES, _e as adReadiness, ge as brandCopy, pe as brandPost, ue as collectionCopy, fe as collectionPost, re as hookFor, ke as loadProduct, Me as makeCollectionFrames, je as makeReel, Ne as makeReelFrames, P as productPost, ce as productScript, j as sayable };
