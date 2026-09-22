@@ -218,7 +218,10 @@ export function hookFor(card) {
     `Is your ${type} past it?`,
     `Want a ${type} that actually works?`,
   ];
-  if (p) options.unshift(`Want a ${type} that ${p}?`, `Tired of a ${type} that can't ${p}?`);
+  // The promise is written in the third person ("saves energy with …"), so it
+  // only reads after "that". "Can't" needs the bare verb and produced
+  // "a vacuum that can't saves energy" — never put it after a modal.
+  if (p) options.unshift(`Want a ${type} that ${p}?`);
   return pick(options);
 }
 
