@@ -8,13 +8,13 @@
 // No DOM of its own: the caller passes a canvas and gets progress callbacks,
 // so the CRM owns every pixel of its page.
 import { MotionRenderer } from './motion.js';
-import { productScript, hookFor } from './adcopy.js';
-import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay, postText } from './reel.js';
+import { productScript, hookFor, productPost, spokenAd, adReadiness, sayable } from './adcopy.js';
+import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay } from './reel.js';
 import { VOICES } from './presets.js';
 import genWorkerUrl from './gen.worker.js?worker&url';
 import ttsWorkerUrl from './tts.worker.js?worker&url';
 
-export { VOICES, hookFor, productScript };
+export { VOICES, hookFor, productScript, productPost, adReadiness, sayable };
 
 function client(worker) {
   let n = 0;
@@ -103,9 +103,9 @@ const MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
  * One finished reel. Returns { video, caption, seconds }.
  * `canvas` is drawn into while it records, so the caller can show it live.
  */
-export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', music = 'auto', logo = null, payments = true, canvas, onProgress }) {
+export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', music = 'auto', logo = null, payments = true, canvas, onProgress, trendTerms = [] }) {
   const ev = progress(onProgress);
-  const spoken = script.startsWith(hook) ? script : `${hook}. ${script}`;
+  const spoken = spokenAd(hook, script);
 
   onProgress?.('Recording the voiceover…', null);
   const v = await ttsW()({ text: spoken, voice, speed: 1 }, ev);
@@ -121,10 +121,15 @@ export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', 
     host: new URL(card.url).host, seconds, logo: logo ? await createImageBitmap(logo) : null, payments,
   });
 
+  // Every reel gets its own camera sequence and photo order, so a feed of
+  // them doesn't look stamped out of one template. The first photo is always
+  // the product's own lead image, so it's on screen from the first frame.
+  const moves = [...MOVES].sort(() => Math.random() - 0.5);
+  const order = [photos[0], ...photos.slice(1).sort(() => Math.random() - 0.5)];
   const shots = [];
-  for (const [i, b] of photos.entries()) {
+  for (const [i, b] of order.entries()) {
     onProgress?.(`Reading the depth of photo ${i + 1} of ${photos.length}…`, null);
-    shots.push({ image: await createImageBitmap(b), depth: await genW()({ op: 'depth', blob: b }, ev), motion: MOVES[i % MOVES.length] });
+    shots.push({ image: await createImageBitmap(b), depth: await genW()({ op: 'depth', blob: b }, ev), motion: moves[i % moves.length] });
   }
 
   const r = new MotionRenderer(canvas);
@@ -132,5 +137,6 @@ export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', 
   const video = await r.record(shots, { intensity: 1, grain: 0.03, onFrame: overlay }, seconds, track,
     t => onProgress?.(`Recording — keep this tab open`, t));
 
-  return { video, caption: postText(card, hook), seconds };
+  const post = productPost(card, hook, { trendTerms });
+  return { video, caption: post.caption, hashtags: post.hashtags, hook, script, seconds };
 }

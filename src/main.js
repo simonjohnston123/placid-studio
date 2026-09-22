@@ -3,9 +3,9 @@ import { MotionRenderer, FORMATS } from './motion.js';
 import { saveItem, listItems, deleteItem, toWav, saveLogo, loadLogo, saveSettings, loadSettings } from './store.js';
 import { sendToQueue, postPayload } from './handover.js';
 import { Presenter, detectFace, recordPresenter, previewPresenter } from './presenter.js';
-import { productScript, productCaption, hookFor } from './adcopy.js';
+import { productScript, productCaption, hookFor, productPost, spokenAd } from './adcopy.js';
 import { lipSyncVideo } from './lipsync.js';
-import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay, postText } from './reel.js';
+import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay } from './reel.js';
 
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -379,7 +379,7 @@ async function presenterVideo({ faceBlob, voice, format, caption, backdropBlobs,
  */
 async function buildReel({ card, photos, hook, script, voiceId, musicMode, musicFile, payments, ownRecordingId, canvas, quiet }) {
   // The hook is spoken as well as shown, so the first second works with sound or without.
-  const spoken = script.startsWith(hook) ? script : `${hook}. ${script}`;
+  const spoken = spokenAd(hook, script);
   const voice = (ownRecordingId ? await pickedRecording(ownRecordingId) : null) || await speak(spoken, voiceId, 1);
   const seconds = voice.samples.length / voice.rate + 2.6;
   let bed = null;
@@ -391,7 +391,7 @@ async function buildReel({ card, photos, hook, script, voiceId, musicMode, music
     hook, cues: captionCues(spoken, voice), price: card.priceLabel, title: card.title,
     host: new URL(card.url).host, seconds, logo, payments,
   });
-  const text = postText(card, hook);
+  const text = productPost(card, hook).caption;
   const out = await renderVideo({
     blobs: photos, motion: 'push', seconds, voice: track, prompt: card.title, format: 'vertical', onFrame: overlay,
     send: { card, hook, script, caption: text, format: 'vertical' }, canvas, quiet,
@@ -411,7 +411,7 @@ const panels = {
       <div id="productBox"></div>
       <label class="f" for="hook">Hook — the first thing they see and hear</label>
       <input type="text" id="hook" maxlength="70" value="${c ? esc(hookFor(c)) : ''}" placeholder="Stop scrolling for ten seconds">
-      <label class="f" for="script">Script — starts with the hook, then the fix</label>
+      <label class="f" for="script">Voiceover — follows the hook</label>
       <textarea id="script">${c ? esc(productScript(c, { hook: hookFor(c) })) : ''}</textarea>
       <div class="row"><button class="btn sm" id="rewrite" type="button">New wording</button><button class="btn sm" id="newHook" type="button">New hook</button><button class="btn sm" id="tryVoice" type="button">Hear this voice</button></div>
       <div class="row">
