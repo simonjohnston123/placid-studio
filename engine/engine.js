@@ -386,7 +386,7 @@ function w(e) {
 		`Is your ${t} past it?`,
 		`Want a ${t} that actually works?`
 	];
-	return n && r.unshift(`Want a ${t} that ${n}?`, `Tired of a ${t} that can't ${n}?`), c(r);
+	return n && r.unshift(`Want a ${t} that ${n}?`), c(r);
 }
 //#endregion
 //#region src/reel.js
