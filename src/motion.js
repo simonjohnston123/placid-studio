@@ -237,6 +237,38 @@ export class MotionRenderer {
   }
 }
 
+/**
+ * Frame-by-frame rendering, for machines that can't draw in real time.
+ *
+ * record() captures whatever is on the canvas as the clock runs, which is
+ * right in a browser with a GPU. With no GPU (the server renderer: WebGL in
+ * software) a frame takes longer than 1/30 s, and real-time capture turns the
+ * reel into a one-frame-a-second slideshow. Here time is stepped, not
+ * measured: frame n is drawn at exactly n/fps, handed to `sink`, and the next
+ * one isn't drawn until the sink is done. Slow machines just take longer; the
+ * result is identical and smooth. Same shots, same moves, same overlays.
+ */
+MotionRenderer.prototype.renderFrames = async function renderFrames(shots, opts, seconds, audio, sink, { fps = 24, onTick } = {}) {
+  this.stop();
+  if (audio) seconds = Math.max(seconds, audio.samples.length / audio.rate + 0.6);
+  const per = seconds / shots.length;
+  const total = Math.ceil(seconds * fps);
+  let current = -1;
+  const show = i => { if (i !== current) { current = i; this.load(shots[i].image, shots[i].depth); } };
+  for (let f = 0; f < total; f++) {
+    const elapsed = f / fps;
+    const i = Math.min(shots.length - 1, Math.floor(elapsed / per));
+    show(i);
+    const local = Math.min(1, (elapsed - i * per) / per);
+    const fade = shots.length > 1 ? Math.min(1, (elapsed - i * per) / 0.3) : 1;
+    this.draw(shots[i].motion, local, { ...opts, alpha: fade });
+    opts.onFrame?.(this.ctx, elapsed, i);
+    await sink(this.out, f, total);
+    onTick?.((f + 1) / total);
+  }
+  return { seconds, frames: total, fps };
+};
+
 function wrap(c, text, max) {
   const words = String(text).split(/\s+/), lines = [];
   let cur = '';

@@ -11,6 +11,7 @@ import { MotionRenderer } from './motion.js';
 import { productScript, hookFor, productPost, spokenAd, adReadiness, sayable } from './adcopy.js';
 import { musicBed, mixVoiceAndMusic, captionCues, reelOverlay } from './reel.js';
 import { VOICES } from './presets.js';
+import { toWav } from './store.js';
 import genWorkerUrl from './gen.worker.js?worker&url';
 import ttsWorkerUrl from './tts.worker.js?worker&url';
 
@@ -99,11 +100,8 @@ export async function loadProduct(link, { base = null, onProgress } = {}) {
 
 const MOVES = ['push', 'orbit', 'pan', 'pull', 'crane', 'drift'];
 
-/**
- * One finished reel. Returns { video, caption, seconds }.
- * `canvas` is drawn into while it records, so the caller can show it live.
- */
-export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', music = 'auto', logo = null, payments = true, canvas, onProgress, trendTerms = [] }) {
+/** Everything a reel needs before a single frame is drawn — shared by both recorders. */
+async function prepareReel({ card, photos, hook, script, voice, music, logo, payments, onProgress }) {
   const ev = progress(onProgress);
   const spoken = spokenAd(hook, script);
 
@@ -128,15 +126,37 @@ export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', 
   const order = [photos[0], ...photos.slice(1).sort(() => Math.random() - 0.5)];
   const shots = [];
   for (const [i, b] of order.entries()) {
-    onProgress?.(`Reading the depth of photo ${i + 1} of ${photos.length}…`, null);
+    onProgress?.(`Reading the depth of photo ${i + 1} of ${order.length}…`, null);
     shots.push({ image: await createImageBitmap(b), depth: await genW()({ op: 'depth', blob: b }, ev), motion: moves[i % moves.length] });
   }
+  return { track, overlay, shots, seconds };
+}
 
+/**
+ * One finished reel, recorded in real time. Returns { video, caption, hashtags, hook, script, seconds }.
+ * `canvas` is drawn into while it records, so the caller can show it live.
+ */
+export async function makeReel({ card, photos, hook, script, voice = 'bf_emma', music = 'auto', logo = null, payments = true, canvas, onProgress, trendTerms = [] }) {
+  const { track, overlay, shots, seconds } = await prepareReel({ card, photos, hook, script, voice, music, logo, payments, onProgress });
   const r = new MotionRenderer(canvas);
   r.setFrame('vertical', null);
   const video = await r.record(shots, { intensity: 1, grain: 0.03, onFrame: overlay }, seconds, track,
     t => onProgress?.(`Recording — keep this tab open`, t));
-
   const post = productPost(card, hook, { trendTerms });
   return { video, caption: post.caption, hashtags: post.hashtags, hook, script, seconds };
+}
+
+/**
+ * The same reel, drawn frame by frame for a machine with no GPU (the server
+ * renderer). Each frame goes to `sink(canvas, index, total)`; the mixed
+ * soundtrack comes back as a WAV. Identical picture, never a slideshow.
+ */
+export async function makeReelFrames({ card, photos, hook, script, voice = 'bf_emma', music = 'auto', logo = null, payments = true, canvas, sink, fps = 24, onProgress, trendTerms = [] }) {
+  const { track, overlay, shots, seconds } = await prepareReel({ card, photos, hook, script, voice, music, logo, payments, onProgress });
+  const r = new MotionRenderer(canvas);
+  r.setFrame('vertical', null);
+  const out = await r.renderFrames(shots, { intensity: 1, grain: 0.03, onFrame: overlay }, seconds, track, sink,
+    { fps, onTick: t => onProgress?.('Drawing frames', t) });
+  const post = productPost(card, hook, { trendTerms });
+  return { audio: toWav(track.samples, track.rate), fps: out.fps, frames: out.frames, caption: post.caption, hashtags: post.hashtags, hook, script, seconds: out.seconds };
 }
