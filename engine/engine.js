@@ -1197,8 +1197,197 @@ var T = (e) => {
 		score: 3,
 		re: /\bmagnetic\s+(base|back|mount)\b/i,
 		say: (e) => `It's got a magnetic ${e[1].toLowerCase()}.`
+	},
+	{
+		tag: "temp",
+		score: 8,
+		re: /\bbetween\s*(-?\d+)\s*°?\s*C?\s*(?:and|to|-|–)\s*(-?\d+)\s*°\s*C\b/i,
+		say: (e) => `You can set it anywhere between ${e[1]} and ${e[2]} degrees.`
+	},
+	{
+		tag: "speed",
+		score: 7,
+		re: /\bup to\s*(\d+(?:\.\d)?)\s*km\s*\/?\s*h\b/i,
+		say: (e) => {
+			let t = [...String(e.input || e[0]).matchAll(/(\d+(?:\.\d)?)\s*km\s*\/?\s*h/gi)].map((e) => Number(e[1]));
+			return `It goes up to ${Math.max(Number(e[1]), ...t)} kilometres an hour.`;
+		}
+	},
+	{
+		tag: "incline-pct",
+		score: 6,
+		re: /\b(\d{1,2})\s*%\s*incline\b|\bincline[^.]{0,20}?\b(\d{1,2})\s*%/i,
+		say: (e) => `The incline goes up to ${e[1] || e[2]} per cent.`
+	},
+	{
+		tag: "noise",
+		score: 6,
+		re: /\b(\d{2,3})\s*dB\b/i,
+		say: (e) => `It runs at ${e[1]} decibels.`
+	},
+	{
+		tag: "extract",
+		score: 7,
+		re: /\b(\d{1,3}(?:\.\d)?)\s*(?:L|litre|liter)s?\s*(?:\/|per\s*)\s*day\b/i,
+		say: (e) => `It pulls up to ${e[1]} litres of moisture out of the air a day.`
+	},
+	{
+		tag: "capacity",
+		score: 7,
+		re: /\b(\d{2,4})\s*(?:L|litre|liter)s?\b(?!\s*(?:\/|per)\s*day)/i,
+		say: (e, t) => t.family === "tools" ? `It's got a ${e[1]} litre tank.` : /dehumidifier|purifier/.test(t.noun) ? /tank|bucket|reservoir/i.test(e.input || "") ? `The water tank holds ${e[1]} litres.` : null : `There's ${e[1]} litres of room inside.`
+	},
+	{
+		tag: "bottles",
+		score: 7,
+		re: /\b(\d{1,3})\s*bottles?\b/i,
+		say: (e) => `It holds up to ${e[1]} bottles.`
+	},
+	{
+		tag: "zones",
+		score: 5,
+		re: /\bdual[- ]zone\b/i,
+		say: () => "It has two separate zones, so you can keep two temperatures at once."
+	},
+	{
+		tag: "shelves",
+		score: 5,
+		re: /\badjustable\s+shelv(es|ing)\b/i,
+		say: () => "The shelves are adjustable, so taller things still fit."
+	},
+	{
+		tag: "display",
+		score: 4,
+		re: /\b(LED|LCD|digital)\s+(?:temperature\s+)?display\b/i,
+		say: (e) => /digital/i.test(e[1]) ? "There's a digital display on the front." : `There's an ${e[1].toUpperCase()} display on the front.`
+	},
+	{
+		tag: "wheels",
+		score: 4,
+		re: /\b(castors?|caster wheels?|wheels for easy|transport wheels?|wheels and handle)\b/i,
+		say: () => "It's on wheels, so moving it about is easy."
+	},
+	{
+		tag: "remote",
+		score: 4,
+		re: /\bremote control\b/i,
+		say: () => "It comes with a remote."
+	},
+	{
+		tag: "app",
+		score: 5,
+		re: /\b(wi-?fi|smart app|app control|control(?:led)? (?:from|via|by|with)[^.]{0,20}app)\b/i,
+		say: () => "You can control it from your phone."
+	},
+	{
+		tag: "timer",
+		score: 3,
+		re: /\b(\d{1,2})[- ]hour timer\b|\bbuilt[- ]in timer\b|\btimer function\b/i,
+		say: (e) => e[1] ? `There's a ${e[1]}-hour timer.` : "There's a timer built in."
+	},
+	{
+		tag: "oilfree",
+		score: 5,
+		re: /\boil[- ]free\b/i,
+		say: () => "The motor's oil-free, so there's no oil to top up."
+	},
+	{
+		tag: "airflow",
+		score: 5,
+		re: /\b(\d+(?:\.\d+)?)\s*CFM\b/i,
+		say: (e) => `It delivers ${e[1]} CFM of air.`
+	},
+	{
+		tag: "psi",
+		score: 5,
+		re: /\b(\d{2,4})\s*PSI\b/i,
+		say: (e) => `It runs up to ${e[1]} PSI.`
+	},
+	{
+		tag: "burners",
+		score: 5,
+		re: /\b(\d)\s*burners?\b/i,
+		say: (e) => `It's got ${d(e[1])} burners.`
+	},
+	{
+		tag: "defrost",
+		score: 4,
+		re: /\bauto(?:matic)?[- ]defrost\b/i,
+		say: () => "It defrosts itself, so there is no chipping ice out."
+	},
+	{
+		tag: "filter",
+		score: 4,
+		re: /\bwashable\s+filters?\b/i,
+		say: () => "The filter washes out and goes back in."
+	},
+	{
+		tag: "bluetooth",
+		score: 3,
+		re: /\bbluetooth\b/i,
+		say: () => "It connects over Bluetooth."
+	},
+	{
+		tag: "volts",
+		score: 3,
+		re: /\b(6|12|24)\s*V\b(?![a-z])/i,
+		say: (e, t) => ["kids", "tools"].includes(t.family) ? `It runs on a ${e[1]} volt battery.` : null
+	},
+	{
+		tag: "resistance",
+		score: 6,
+		re: /\b(\d{1,2})\s*levels?\s+of\s+[^.]{0,30}resistance\b|\b(\d{1,2})\s+resistance\s+levels?\b/i,
+		say: (e) => `There are ${d(e[1] || e[2])} resistance levels to work through.`
+	},
+	{
+		tag: "programs",
+		score: 5,
+		re: /\b(\d{1,2})\s+(?:automated\s+|training\s+)+programs?\b/i,
+		say: (e) => `There are ${d(e[1])} training programs built in.`
+	},
+	{
+		tag: "zone-support",
+		score: 6,
+		re: /\b(\d)[- ]zone\b[^.]{0,30}(support|comfort)/i,
+		say: (e) => `It's built with ${d(e[1])} support zones down the mattress.`
+	},
+	{
+		tag: "edge",
+		score: 5,
+		re: /\b(reinforced|reduced|enhanced)?\s*edge\s+(support|stability)\b/i,
+		say: () => "The edges are reinforced, so you can sit right on the side."
+	},
+	{
+		tag: "motion",
+		score: 6,
+		re: /\breduced motion transfer\b|\bmotion transfer\b[^.]{0,20}\breduc/i,
+		say: () => "It cuts down motion transfer, so you're less likely to feel someone else turn over."
+	},
+	{
+		tag: "breathable",
+		score: 3,
+		re: /\bbreathable\b[^.]{0,30}(fabric|cover|knit)/i,
+		say: () => "The cover's breathable, so it doesn't sleep hot."
+	},
+	{
+		tag: "dogsize",
+		score: 6,
+		re: /\bsuitable for dogs up to\s*(\d{1,3})\s*kgs?\b/i,
+		say: (e) => `It suits dogs up to ${e[1]} kilos.`
+	},
+	{
+		tag: "raised",
+		score: 5,
+		re: /\belevated floor\b|\braised floor\b/i,
+		say: () => "The floor sits up off the ground, so it stays drier."
+	},
+	{
+		tag: "roof",
+		score: 4,
+		re: /\basphalt roof\b/i,
+		say: () => "The roof is asphalt, so the rain runs straight off."
 	}
-], D = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, O = /\b(groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
+], D = /\b(vacuum[- ]packed|packaging|expan(d|sion)|allow \d+|instruction|manual|x\s?\d+\b|\d+\s?x\b|package|warranty|certified|suitable for|use\b.*,|colou?r|grey|gray|black|white|pink|green|blue|red|beige|charcoal|navy|cream|brown|premium|high[- ]quality|material|fabric|polyester|corduroy|suede|plastic|stainless|steel)\b/i, O = /\b(energy[- ]efficien\w*|energy[- ]saving|eco[- ]friendly|environmentally friendly|groundbreaking|revolutionary|significant impact|state of the art|cutting[- ]edge|unparalleled|ultimate|perfect for every|amazing|incredible|elevate|seamless|effortless(ly)?)\b/i;
 function k(e, t, n = !0) {
 	let r = h(String(e).replace(/[✀-➿←-⇿⬀-⯿️•▪●★✔✅❌]/g, "").replace(/\s+/g, " ").trim());
 	if (!r) return null;
@@ -1210,18 +1399,24 @@ function k(e, t, n = !0) {
 			"sport"
 		].includes(t.family) && !/desk|table|shelf/.test(t.noun) || e.tag === "wash" && /cover/.test(t.noun)) continue;
 		let n = r.match(e.re);
-		if (n) return {
-			text: e.say(n, t),
-			tag: e.tag,
-			score: e.score
-		};
+		if (n) {
+			let r = e.say(n, t);
+			if (r) return {
+				text: r,
+				tag: e.tag,
+				score: e.score
+			};
+			continue;
+		}
 	}
 	if (!n || D.test(r) || O.test(r)) return null;
 	let i = r.replace(/[.!]$/, "").split(/\s+/);
 	if (i.length >= 2 && i.length <= 5 && !/\d/.test(r) && !/^(it|this|the|you|and|or|for|to)\b/i.test(r)) {
 		let e = p(r.replace(/[.!]$/, ""));
+		if (/[A-Z]/.test(e.slice(1)) || /[&/]/.test(e) || /^(no|zero|fast|super|ultra|mega|smart|easy|instant|pure|true)\b/i.test(e)) return null;
+		let t = /s$/.test(i[i.length - 1]) && !/ss$/.test(i[i.length - 1]), n = /\b(removal|control|protection|insulation|storage|cooling|heating|filtration|ventilation|efficiency|capacity|performance|comfort|support|coverage|airflow|suction|power|drainage|operation)$/i.test(e);
 		return {
-			text: `It's got ${/s$/.test(i[i.length - 1]) && !/ss$/.test(i[i.length - 1]) ? "" : /^[aeiou]/i.test(e) ? "an " : "a "}${e}.`,
+			text: `It's got ${t || n ? "" : /^[aeiou]/i.test(e) ? "an " : "a "}${e}.`,
 			tag: `np:${i[i.length - 1].toLowerCase()}`,
 			score: 1
 		};
@@ -1235,7 +1430,7 @@ function ee(e, t, n) {
 	if (i.length < 5 || i.length > 14 || (r.match(/,/g) || []).length > 1) return null;
 	let a = String(t.title).toLowerCase().split(/\s+/), o = r.toLowerCase();
 	for (let e = 0; e + 2 < a.length; e++) if (o.includes(a.slice(e, e + 3).join(" "))) return null;
-	return x(t) && o.includes(x(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
+	return x(t) && o.includes(x(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) || /\b(our|we|us)\b/i.test(r) || /^(take|start|enjoy|experience|discover|transform|upgrade|elevate|indulge|imagine|treat|meet)\b/i.test(r) || (r.replace(/^\S+\s*/, "").match(/\b[A-Z][a-z]+/g) || []).length >= 2 ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
 		text: /[.!?]$/.test(r) ? r : `${r}.`,
 		tag: `prose:${i[0].toLowerCase()}`,
 		score: 2
