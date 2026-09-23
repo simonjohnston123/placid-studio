@@ -1430,7 +1430,7 @@ function ee(e, t, n) {
 	if (i.length < 5 || i.length > 14 || (r.match(/,/g) || []).length > 1) return null;
 	let a = String(t.title).toLowerCase().split(/\s+/), o = r.toLowerCase();
 	for (let e = 0; e + 2 < a.length; e++) if (o.includes(a.slice(e, e + 3).join(" "))) return null;
-	return x(t) && o.includes(x(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) || /\b(our|we|us)\b/i.test(r) || /^(take|start|enjoy|experience|discover|transform|upgrade|elevate|indulge|imagine|treat|meet)\b/i.test(r) || (r.replace(/^\S+\s*/, "").match(/\b[A-Z][a-z]+/g) || []).length >= 2 ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
+	return x(t) && o.includes(x(t).toLowerCase()) || !/\b(you|your|it|keeps|lets|means|makes|gives|helps)\b/i.test(r) || /\b(our|we|us)\b/i.test(r) || !/\b(is|are|was|has|have|can|comes?|keeps?|lets?|means?|makes?|gives?|helps?|works?|folds?|holds?|fits?|adjusts?|runs?|goes|sits?|stays?|adds?|takes?|doubles?|stores?|charges?|heats?|cools?)\b/i.test(r) || /^(take|start|enjoy|experience|discover|transform|upgrade|elevate|indulge|imagine|treat|meet)\b/i.test(r) || (r.replace(/^\S+\s*/, "").match(/\b[A-Z][a-z]+/g) || []).length >= 2 ? null : (/^(makes|keeps|lets|gives|helps|holds|fits|works|stays|adds)\b/i.test(r) && (r = `It ${p(r)}`), {
 		text: /[.!?]$/.test(r) ? r : `${r}.`,
 		tag: `prose:${i[0].toLowerCase()}`,
 		score: 2
